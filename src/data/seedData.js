@@ -64,7 +64,7 @@ export const SCHOOLS_SEED = schoolsJson.map((school) => {
 const devicesBase = [
   ["Geladeira Frost-Free", "🧊", "Cozinha", 150, 24, 7],
   ["Chuveiro Elétrico", "🚿", "Banheiro", 4500, 0.5, 7],
-  ["Ar-condicionado 9000 BTUs", "🌬️", "Climatização", 1200, 6, 7],
+  ["Ar-condicionado 9000 BTUs", "❄️", "Climatização", 1200, 6, 7],
   ['Televisor LED 50"', "📺", "Lazer", 100, 5, 7],
   ["Ventilador de Coluna", "🌀", "Climatização", 80, 8, 7],
   ["Máquina de Lavar", "🧺", "Lavanderia", 500, 1, 3],

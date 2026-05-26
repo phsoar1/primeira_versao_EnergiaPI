@@ -142,10 +142,14 @@ service cloud.firestore {
         ])
         && request.resource.data.auditores is number
         && request.resource.data.scoreTotal is number
-        && request.resource.data.auditores >= resource.data.auditores
-        && request.resource.data.auditores - resource.data.auditores <= 1
-        && request.resource.data.scoreTotal >= resource.data.scoreTotal
-        && request.resource.data.scoreTotal - resource.data.scoreTotal <= 200
+        && (!('auditores' in resource.data)
+          || request.resource.data.auditores >= resource.data.auditores)
+        && (!('auditores' in resource.data)
+          || request.resource.data.auditores - resource.data.auditores <= 1)
+        && (!('scoreTotal' in resource.data)
+          || request.resource.data.scoreTotal >= resource.data.scoreTotal)
+        && (!('scoreTotal' in resource.data)
+          || request.resource.data.scoreTotal - resource.data.scoreTotal <= 200)
         && (!('impactoKwhTotal' in resource.data)
           || request.resource.data.impactoKwhTotal >= resource.data.impactoKwhTotal)
         && (!('impactoKwhTotal' in resource.data)

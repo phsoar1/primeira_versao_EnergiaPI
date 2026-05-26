@@ -56,10 +56,11 @@ const normalizarEscola = (school = {}) => {
     school.escolaNome ||
     school.escola ||
     school.razaoSocial ||
-    "CETI EnergiaPI";
+    school.id ||
+    "Escola sem nome";
   return {
     ...school,
-    nome,
+    nome: String(nome).trim() || "Escola sem nome",
     GRE,
     gre: GRE,
     cidade: school.cidade || school.municipio || "",
@@ -69,6 +70,57 @@ const normalizarEscola = (school = {}) => {
     scoreTotal: Number(school.scoreTotal || school.totalKwhSalvo || 0),
     totalKwhSalvo: Number(school.scoreTotal || school.totalKwhSalvo || 0),
   };
+};
+
+const ordenarRankingEscolas = (lista = []) =>
+  [...lista].sort((a, b) => {
+    const scoreDelta = Number(b.scoreTotal || b.totalKwhSalvo || 0) - Number(a.scoreTotal || a.totalKwhSalvo || 0);
+    if (scoreDelta) return scoreDelta;
+    const auditoresDelta = Number(b.auditores || b.alunosAtivos || 0) - Number(a.auditores || a.alunosAtivos || 0);
+    if (auditoresDelta) return auditoresDelta;
+    return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+  });
+
+const normalizarRankingComunidade = (perfil = {}) => {
+  const score = Number(perfil.score || perfil.pontuacao || 0);
+  return {
+    ...perfil,
+    nome: perfil.nome || "Auditor EnergiaPI",
+    perfil: perfil.perfil || (perfil.tipoUsuario === "morador" ? "Morador" : "Estudante"),
+    escola: perfil.escola || perfil.escolaNome || (perfil.tipoUsuario === "morador" ? "Comunidade" : "CETI"),
+    pontuacao: score,
+    score,
+    kwhSalvo: Number(perfil.kwhSalvo || 0),
+    badges: perfil.badges || gerarBadgesPontuacao(score),
+  };
+};
+
+const ordenarRankingComunidade = (lista = []) =>
+  [...lista].sort((a, b) => {
+    const scoreDelta = Number(b.score || b.pontuacao || 0) - Number(a.score || a.pontuacao || 0);
+    if (scoreDelta) return scoreDelta;
+    const kwhDelta = Number(b.kwhSalvo || 0) - Number(a.kwhSalvo || 0);
+    if (kwhDelta) return kwhDelta;
+    return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+  });
+
+const normalizarMissoes = (missions = []) =>
+  missions.map((mission, index) => {
+    if (index > 1) return mission;
+    return {
+      ...mission,
+      pontos: 50,
+      scoreNecessario: 0,
+      bloqueada: false,
+    };
+  });
+
+const normalizarEmojiAparelho = (device = {}) => {
+  const nome = normalizarBusca(device.nome || "");
+  if (nome.includes("ar-condicionado") || nome.includes("ar condicionado")) {
+    return "\u2744\uFE0F";
+  }
+  return device.emoji || device.icone || "\u26A1";
 };
 
 const normalizarPerfilUsuario = (perfil = {}, uidFallback = "") => {
@@ -303,6 +355,8 @@ export const completeUserOnboarding = async (firebaseUser, perfil) => {
         doc(db, "schools", payload.escolaId),
         {
           auditores: increment(1),
+          scoreTotal: increment(0),
+          impactoKwhTotal: increment(0),
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -372,6 +426,7 @@ export const addUserScore = async (uid, pontos, options = {}) => {
       transaction.set(
         doc(db, "schools", atual.escolaId),
         {
+          auditores: increment(0),
           scoreTotal: increment(pontosNumericos),
           impactoKwhTotal: increment(impactoKwh),
           updatedAt: serverTimestamp(),
@@ -517,8 +572,8 @@ export const addUserDevice = async (uid, device) => {
   const payload = normalizarUsoAparelho({
     deviceId: device.deviceId || device.id || "",
     nome: device.nome,
-    emoji: device.emoji || device.icone || "⚡",
-    icone: device.emoji || device.icone || "⚡",
+    emoji: normalizarEmojiAparelho(device),
+    icone: normalizarEmojiAparelho(device),
     categoria: device.categoria || "Tecnologia",
     potencia: Number(device.potencia || 0),
     quantidade: Number(device.quantidade || 1),
@@ -560,11 +615,15 @@ export const subscribeMissions = (callback) =>
   onSnapshot(
     query(colecao("missions"), orderBy("ordem", "asc"), limit(80)),
     (snapshot) => {
-      callback(fallbackQuandoVazio(snapshot.docs.map(dataDoc), MISSIONS_SEED));
+      callback(
+        normalizarMissoes(
+          fallbackQuandoVazio(snapshot.docs.map(dataDoc), MISSIONS_SEED),
+        ),
+      );
     },
     (error) => {
       console.warn("[Firestore missions fallback]", error?.message);
-      callback(MISSIONS_SEED);
+      callback(normalizarMissoes(MISSIONS_SEED));
     },
   );
 
@@ -604,85 +663,126 @@ export const setUserMissionProgress = async (uid, missionId, patch) => {
 
 const listarRankingEscolas = async () => {
   const snapshot = await withTimeout(
-    getDocs(query(colecao("schools"), orderBy("scoreTotal", "desc"), limit(50))),
+    getDocs(colecao("schools")),
   );
-  return fallbackQuandoVazio(
-    snapshot.docs.map((item) => normalizarEscola(dataDoc(item))),
-    RANKING_ESCOLAS_SEED.map(normalizarEscola),
+  return ordenarRankingEscolas(
+    fallbackQuandoVazio(
+      snapshot.docs.map((item) => normalizarEscola(dataDoc(item))),
+      RANKING_ESCOLAS_SEED.map(normalizarEscola),
+    ),
   );
 };
 
 const listarRankingComunidade = async () => {
   const snapshot = await withTimeout(
-    getDocs(query(colecao("community"), orderBy("score", "desc"), limit(50))),
+    getDocs(colecao("community")),
   );
-  return fallbackQuandoVazio(
-    snapshot.docs.map((item) => {
-      const dados = dataDoc(item);
-      return {
-        ...dados,
-        pontuacao: Number(dados.score || dados.pontuacao || 0),
-        score: Number(dados.score || dados.pontuacao || 0),
-        kwhSalvo: Number(dados.kwhSalvo || 0),
-        badges: dados.badges || gerarBadgesPontuacao(dados.score || dados.pontuacao),
-      };
-    }),
-    [],
+  return ordenarRankingComunidade(
+    fallbackQuandoVazio(
+      snapshot.docs.map((item) => normalizarRankingComunidade(dataDoc(item))),
+      [],
+    ),
   );
 };
 
-export const subscribeRankings = (callback, options = {}) => {
+export const subscribeRankings = (callback) => {
   let ativo = true;
-  const intervalMs = options.intervalMs || RANKING_REFRESH_MS;
   const cached =
     cacheGet(cache.rankings, "last") || lerRankingsCache();
+  const state = {
+    escolas: cached?.escolas ? ordenarRankingEscolas(cached.escolas.map(normalizarEscola)) : null,
+    comunidade: cached?.comunidade
+      ? ordenarRankingComunidade(cached.comunidade.map(normalizarRankingComunidade))
+      : null,
+  };
 
   if (cached) {
     callback({
       ...cached,
+      escolas: state.escolas || [],
+      comunidade: state.comunidade || [],
       fromCache: true,
     });
   }
 
-  const carregar = async () => {
-    try {
-      const [escolas, comunidade] = await Promise.all([
-        listarRankingEscolas(),
-        listarRankingComunidade(),
-      ]);
-
-      if (ativo) {
-        const payload = {
-          escolas,
-          comunidade,
-          lastUpdated: new Date().toISOString(),
-          fromCache: false,
-        };
-        cacheSet(cache.rankings, "last", payload);
-        salvarRankingsCache(payload);
-        callback(payload);
-      }
-    } catch (error) {
-      console.warn("[Firestore rankings fallback]", error?.message);
-      if (ativo) {
-        const fallback = cacheGet(cache.rankings, "last") || lerRankingsCache();
-        callback({
-          escolas: fallback?.escolas || RANKING_ESCOLAS_SEED.map(normalizarEscola),
-          comunidade: fallback?.comunidade || [],
-          error: error?.message || "ranking-unavailable",
-          fromCache: Boolean(fallback),
-          lastUpdated: new Date().toISOString(),
-        });
-      }
-    }
+  const emitir = (extra = {}) => {
+    if (!ativo) return;
+    const payload = {
+      escolas: state.escolas || RANKING_ESCOLAS_SEED.map(normalizarEscola),
+      comunidade: state.comunidade || [],
+      lastUpdated: new Date().toISOString(),
+      fromCache: false,
+      ...extra,
+    };
+    cacheSet(cache.rankings, "last", payload);
+    salvarRankingsCache(payload);
+    callback(payload);
   };
 
-  carregar();
-  const timer = window.setInterval(carregar, intervalMs);
+  const unsubscribeEscolas = onSnapshot(
+    colecao("schools"),
+    (snapshot) => {
+      state.escolas = ordenarRankingEscolas(
+        fallbackQuandoVazio(
+          snapshot.docs.map((item) => normalizarEscola(dataDoc(item))),
+          RANKING_ESCOLAS_SEED.map(normalizarEscola),
+        ),
+      );
+      emitir();
+    },
+    (error) => {
+      console.warn("[Firestore schools ranking fallback]", error?.message);
+      state.escolas =
+        state.escolas || cached?.escolas || RANKING_ESCOLAS_SEED.map(normalizarEscola);
+      emitir({
+        error: error?.message || "schools-ranking-unavailable",
+        fromCache: Boolean(cached),
+      });
+    },
+  );
+
+  const unsubscribeComunidade = onSnapshot(
+    colecao("community"),
+    (snapshot) => {
+      state.comunidade = ordenarRankingComunidade(
+        fallbackQuandoVazio(
+          snapshot.docs.map((item) => normalizarRankingComunidade(dataDoc(item))),
+          [],
+        ),
+      );
+      emitir();
+    },
+    (error) => {
+      console.warn("[Firestore community ranking fallback]", error?.message);
+      state.comunidade = state.comunidade || cached?.comunidade || [];
+      emitir({
+        error: error?.message || "community-ranking-unavailable",
+        fromCache: Boolean(cached),
+      });
+    },
+  );
+
+  Promise.allSettled([listarRankingEscolas(), listarRankingComunidade()]).then(
+    (results) => {
+      if (!ativo) return;
+      const [escolasResult, comunidadeResult] = results;
+      if (escolasResult.status === "fulfilled") state.escolas = escolasResult.value;
+      if (comunidadeResult.status === "fulfilled") {
+        state.comunidade = comunidadeResult.value;
+      }
+      if (
+        escolasResult.status === "fulfilled" ||
+        comunidadeResult.status === "fulfilled"
+      ) {
+        emitir();
+      }
+    }
+  );
 
   return () => {
     ativo = false;
-    window.clearInterval(timer);
+    unsubscribeEscolas();
+    unsubscribeComunidade();
   };
 };
 

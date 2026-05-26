@@ -4,6 +4,8 @@ import { CheckCircle, Search, School, X } from "lucide-react";
 import { useSchoolSearch } from "../../hooks/useCatalogSearch";
 
 const getGRE = (school) => school?.GRE || school?.gre || "";
+const getSchoolMeta = (school) =>
+  [getGRE(school), school?.regiao || school?.cidade].filter(Boolean).join(" • ");
 const fallbackTheme = {
   modal:
     "bg-[#111d35]/95 backdrop-blur-2xl border-slate-700/50 shadow-2xl",
@@ -132,6 +134,7 @@ export default function SchoolSearchPicker({
           ) : items.length > 0 ? (
             items.map((school) => {
               const active = selectedSchool?.id === school.id;
+              const meta = getSchoolMeta(school);
               return (
                 <button
                   type="button"
@@ -151,11 +154,13 @@ export default function SchoolSearchPicker({
                     >
                       {school.nome}
                     </span>
-                    <span
-                      className={`block text-[10px] font-bold uppercase tracking-wider mt-1 ${theme.textMuted}`}
-                    >
-                      {getGRE(school)} Â· {school.regiao || school.cidade}
-                    </span>
+                    {meta && (
+                      <span
+                        className={`block text-[10px] font-bold uppercase tracking-wider mt-1 ${theme.textMuted}`}
+                      >
+                        {meta}
+                      </span>
+                    )}
                   </span>
                   {active && (
                     <CheckCircle className="w-5 h-5 text-[#10B981] shrink-0" />
@@ -197,9 +202,9 @@ export default function SchoolSearchPicker({
             <span className="block text-xs font-extrabold truncate">
               {selectedSchool?.nome || buttonText}
             </span>
-            {selectedSchool?.nome && (
+            {selectedSchool?.nome && getSchoolMeta(selectedSchool) && (
               <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
-                {getGRE(selectedSchool)} Â· {selectedSchool.cidade}
+                {getSchoolMeta(selectedSchool)}
               </span>
             )}
           </span>

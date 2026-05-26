@@ -402,6 +402,34 @@ export default function App() {
     loading: rankingsCarregando,
     error: rankingsErro,
   } = useRankings();
+  const rankingComunidadeOrdenado = useMemo(
+    () =>
+      [...rankingComunidade].sort((a, b) => {
+        const scoreDelta =
+          Number(b.score || b.pontuacao || 0) -
+          Number(a.score || a.pontuacao || 0);
+        if (scoreDelta) return scoreDelta;
+        return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+      }),
+    [rankingComunidade],
+  );
+  const rankingEscolasOrdenado = useMemo(
+    () =>
+      [...rankingEscolas].sort((a, b) => {
+        const scoreDelta =
+          Number(b.scoreTotal || b.totalKwhSalvo || 0) -
+          Number(a.scoreTotal || a.totalKwhSalvo || 0);
+        if (scoreDelta) return scoreDelta;
+        const auditoresDelta =
+          Number(b.auditores || b.alunosAtivos || 0) -
+          Number(a.auditores || a.alunosAtivos || 0);
+        if (auditoresDelta) return auditoresDelta;
+        const nomeA = a.nome || a.name || a.escolaNome || a.escola || "";
+        const nomeB = b.nome || b.name || b.escolaNome || b.escola || "";
+        return String(nomeA).localeCompare(String(nomeB), "pt-BR");
+      }),
+    [rankingEscolas],
+  );
 
   // SISTEMA DE CORES DINÂMICO
   const isDark = tema === "escuro";
@@ -911,6 +939,22 @@ export default function App() {
   }, [fecharModalTemplates, modalTemplatesAberto, modalNovoAberto]);
 
   useEffect(() => {
+    const modalAberto =
+      modalTemplatesAberto || modalNovoAberto || Boolean(aparelhoParaExcluir);
+    if (!modalAberto) return undefined;
+
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, [aparelhoParaExcluir, modalNovoAberto, modalTemplatesAberto]);
+
+  useEffect(() => {
     if (!quickEdit) return undefined;
 
     const handlePointerDown = (event) => {
@@ -964,8 +1008,8 @@ export default function App() {
     autenticado,
     onboardingPendente,
     eletrodomesticos.length,
-    rankingComunidade.length,
-    rankingEscolas.length,
+    rankingComunidadeOrdenado.length,
+    rankingEscolasOrdenado.length,
   ]);
 
   // MOTOR DE "INSIGHTS INTELIGENTES" (Requisito 4)
@@ -1371,12 +1415,14 @@ export default function App() {
 
   const aplicarValorRapido = (nextValue) => {
     if (!quickEdit) return;
+    const numericValue = Number(nextValue);
+    if (!Number.isFinite(numericValue)) return;
     const decimals = String(quickEdit.step).includes(".")
       ? String(quickEdit.step).split(".")[1].length
       : 0;
     const next = Number(
       Math.min(
-        Math.max(Number(nextValue), quickEdit.min),
+        Math.max(numericValue, quickEdit.min),
         quickEdit.max,
       ).toFixed(decimals),
     );
@@ -1581,7 +1627,11 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
-        html, body, #root { overscroll-behavior-y: contain; }
+        html, body, #root {
+          overscroll-behavior-y: contain;
+          overflow-x: hidden;
+          max-width: 100%;
+        }
         body { touch-action: manipulation; }
         .text-neon-green { color: #10B981; }
         .gpu-smooth {
@@ -2585,7 +2635,7 @@ export default function App() {
                   </div>
                   <button
                     onClick={() => setModalTemplatesAberto(true)}
-                    className="self-start sm:self-auto bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-white font-extrabold text-xs py-3 px-6 rounded-2xl hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_8px_20px_rgba(16,185,129,0.25)] transition-all duration-300 flex items-center gap-2 uppercase tracking-wider animate-pulse"
+                    className="self-start sm:self-auto bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-white font-extrabold text-xs min-h-[44px] py-3 px-6 rounded-2xl hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_8px_20px_rgba(16,185,129,0.25)] transition-all duration-300 flex items-center justify-center gap-2 uppercase tracking-wider whitespace-nowrap animate-pulse"
                   >
                     <Plus size={16} /> Adicionar Aparelho
                   </button>
@@ -2616,7 +2666,7 @@ export default function App() {
                     </p>
                     <button
                       onClick={() => setModalTemplatesAberto(true)}
-                      className="bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-white font-extrabold text-xs py-3.5 px-6 rounded-2xl hover:shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all duration-300 flex items-center gap-2 uppercase tracking-wider"
+                      className="bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-white font-extrabold text-xs min-h-[44px] py-3.5 px-6 rounded-2xl hover:shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 uppercase tracking-wider whitespace-nowrap"
                     >
                       <Plus size={16} /> Iniciar Mapeamento
                     </button>
@@ -2977,12 +3027,6 @@ export default function App() {
                         ? "Ocultar Missões Futuras"
                         : "Mostrar Mais Missões"}
                     </button>
-                    <p
-                      className={`text-[10px] font-bold uppercase tracking-widest text-center ${tm.textMuted}`}
-                    >
-                      Missões futuras aparecem abaixo sem desbloquear
-                      automaticamente
-                    </p>
                   </div>
                 )}
 
@@ -3091,10 +3135,10 @@ export default function App() {
                     </p>
                   </div>
                   <div
-                    className={`border p-3.5 rounded-2xl flex items-center gap-3 shadow-sm ${isDark ? "bg-[#111d35]/80 border-slate-800" : "bg-white border-slate-200"}`}
+                    className={`border min-h-[46px] px-4 py-3 rounded-2xl flex items-center justify-center gap-3 shadow-sm max-w-full text-center ${isDark ? "bg-[#111d35]/80 border-slate-800" : "bg-white border-slate-200"}`}
                   >
                     <Trophy className="text-[#10B981]" size={18} />
-                    <span className="text-xs font-bold text-neon-green">
+                    <span className="text-xs font-bold text-neon-green leading-snug">
                       Líderes de Economia
                     </span>
                   </div>
@@ -3116,7 +3160,7 @@ export default function App() {
                   <div
                     className={`divide-y ${isDark ? "divide-slate-800/60" : "divide-slate-100"}`}
                   >
-                    {rankingsCarregando && rankingComunidade.length === 0 ? (
+                    {rankingsCarregando && rankingComunidadeOrdenado.length === 0 ? (
                       <div className="px-6 py-10 text-center">
                         <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                         <p className={`text-sm font-bold ${tm.text}`}>
@@ -3126,7 +3170,7 @@ export default function App() {
                           Buscando ranking em tempo real.
                         </p>
                       </div>
-                    ) : rankingComunidade.length === 0 ? (
+                    ) : rankingComunidadeOrdenado.length === 0 ? (
                       <div className="px-6 py-10 text-center">
                         <p className={`text-sm font-bold ${tm.text}`}>
                           Nenhum auditor ranqueado ainda.
@@ -3136,11 +3180,11 @@ export default function App() {
                         </p>
                         {rankingsErro && (
                           <p className="text-[10px] mt-3 font-bold uppercase tracking-wider text-[#F59E0B]">
-                            Exibindo fallback local enquanto o Firestore responde.
+                            Nao foi possivel atualizar agora.
                           </p>
                         )}
                       </div>
-                    ) : rankingComunidade.map((item, index) => {
+                    ) : rankingComunidadeOrdenado.map((item, index) => {
                       const isCurrentUser = item.nome === usuarioSeguro.nome;
                       return (
                         <div
@@ -3236,11 +3280,11 @@ export default function App() {
                     </p>
                   </div>
                   <div
-                    className={`border p-3.5 rounded-2xl flex items-center gap-3 shadow-sm ${isDark ? "bg-[#111d35]/80 border-slate-800" : "bg-white border-slate-200"}`}
+                    className={`border min-h-[46px] px-4 py-3 rounded-2xl flex items-center justify-center gap-3 shadow-sm max-w-full text-center ${isDark ? "bg-[#111d35]/80 border-slate-800" : "bg-white border-slate-200"}`}
                   >
                     <Users className="text-[#10B981]" size={18} />
                     <span
-                      className={`text-xs font-bold ${isDark ? "text-slate-300" : "text-slate-700"}`}
+                      className={`text-xs font-bold leading-snug ${isDark ? "text-slate-300" : "text-slate-700"}`}
                     >
                       Unidos pela mudança
                     </span>
@@ -3262,20 +3306,32 @@ export default function App() {
                   <div
                     className={`divide-y ${isDark ? "divide-slate-800/60" : "divide-slate-100"}`}
                   >
-                    {rankingsCarregando && rankingEscolas.length === 0 ? (
+                    {rankingsCarregando && rankingEscolasOrdenado.length === 0 ? (
                       <div className="px-6 py-10 text-center">
                         <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                         <p className={`text-sm font-bold ${tm.text}`}>
                           Sincronizando escolas...
                         </p>
                       </div>
-                    ) : rankingEscolas.map((escola, index) => {
+                    ) : rankingEscolasOrdenado.length === 0 ? (
+                      <div className="px-6 py-10 text-center">
+                        <p className={`text-sm font-bold ${tm.text}`}>
+                          Nenhuma escola ranqueada ainda.
+                        </p>
+                      </div>
+                    ) : rankingEscolasOrdenado.map((escola, index) => {
                       const nomeEscola =
                         escola.nome ||
                         escola.name ||
                         escola.escolaNome ||
                         escola.escola ||
-                        "CETI EnergiaPI";
+                        "Escola sem nome";
+                      const detalheEscola = [
+                        escola.GRE || escola.gre,
+                        escola.regiao || escola.cidade,
+                      ]
+                        .filter(Boolean)
+                        .join(" • ");
                       return (
                       <div
                         key={escola.id || index}
@@ -3311,11 +3367,13 @@ export default function App() {
                               </span>
                             )}
                           </h4>
-                          <p
-                            className={`text-[10px] font-bold tracking-wider mt-1 uppercase ${tm.textMuted}`}
-                          >
-                            {escola.GRE || escola.gre} • {escola.regiao || escola.cidade}
-                          </p>
+                          {detalheEscola && (
+                            <p
+                              className={`text-[10px] font-bold tracking-wider mt-1 uppercase ${tm.textMuted}`}
+                            >
+                              {detalheEscola}
+                            </p>
+                          )}
                         </div>
                         <div
                           className={`col-start-2 col-span-2 md:col-start-auto md:col-span-3 md:text-right font-extrabold text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}

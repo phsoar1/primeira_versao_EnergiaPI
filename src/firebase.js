@@ -28,6 +28,8 @@ const isPlaceholderValue = (value) => {
   const normalized = String(value || "").toLowerCase();
   return (
     !normalized ||
+    normalized === "undefined" ||
+    normalized === "null" ||
     normalized.includes("demo") ||
     normalized.includes("your_") ||
     normalized.includes("xxxx") ||

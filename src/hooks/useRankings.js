@@ -15,8 +15,8 @@ export const useRankings = () => {
     () =>
       subscribeRankings((dados) =>
         setRankings((atual) => ({
-          escolas: dados.escolas?.length ? dados.escolas : atual.escolas,
-          comunidade: dados.comunidade?.length
+          escolas: Array.isArray(dados.escolas) ? dados.escolas : atual.escolas,
+          comunidade: Array.isArray(dados.comunidade)
             ? dados.comunidade
             : atual.comunidade,
           loading: false,
