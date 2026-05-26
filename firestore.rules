@@ -1,0 +1,212 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function ownUserAfter() {
+      return getAfter(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function validAddress() {
+      return request.resource.data.endereco is string
+        && request.resource.data.numero is string
+        && request.resource.data.cidade is string
+        && request.resource.data.bairro is string
+        && request.resource.data.estado is string;
+    }
+
+    function validUserBase(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && request.resource.data.nome is string
+        && request.resource.data.tipoUsuario in ['estudante', 'morador']
+        && request.resource.data.onboardingCompleto is bool
+        && request.resource.data.score is number
+        && request.resource.data.kwhSalvo is number
+        && validAddress();
+    }
+
+    function validPendingUser(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && request.resource.data.nome is string
+        && request.resource.data.tipoUsuario == ''
+        && request.resource.data.onboardingCompleto == false
+        && request.resource.data.score == 0
+        && request.resource.data.kwhSalvo == 0
+        && request.resource.data.escolaId == ''
+        && request.resource.data.escolaNome == ''
+        && request.resource.data.GRE == ''
+        && validAddress();
+    }
+
+    function validCompleteUser(uid) {
+      return validUserBase(uid)
+        && request.resource.data.onboardingCompleto == true
+        && (validStudentFields() || validMoradorFields());
+    }
+
+    function validStudentFields() {
+      return request.resource.data.tipoUsuario == 'estudante'
+        && request.resource.data.escolaId is string
+        && request.resource.data.escolaNome is string
+        && request.resource.data.GRE is string;
+    }
+
+    function validMoradorFields() {
+      return request.resource.data.tipoUsuario == 'morador'
+        && request.resource.data.escolaId == ''
+        && request.resource.data.escolaNome == ''
+        && request.resource.data.GRE == '';
+    }
+
+    function userCannotChangeIdentity() {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && (
+          request.resource.data.tipoUsuario == resource.data.tipoUsuario
+          || resource.data.tipoUsuario == ''
+          || (resource.data.tipoUsuario == 'seduc'
+            && request.resource.data.tipoUsuario == 'estudante')
+        );
+    }
+
+    function onboardingCannotBeUndone() {
+      return !(resource.data.onboardingCompleto == true
+        && request.resource.data.onboardingCompleto != true);
+    }
+
+    function scoreOnlyMovesByAllowedDelta() {
+      return request.resource.data.score is number
+        && request.resource.data.score >= resource.data.score
+        && request.resource.data.score - resource.data.score <= 200
+        && request.resource.data.kwhSalvo >= resource.data.kwhSalvo
+        && request.resource.data.kwhSalvo - resource.data.kwhSalvo <= 80;
+    }
+
+    function validUserDevice() {
+      return request.resource.data.deviceId is string
+        && request.resource.data.nome is string
+        && request.resource.data.potencia is number
+        && request.resource.data.potencia >= 1
+        && request.resource.data.quantidade is number
+        && request.resource.data.quantidade >= 1
+        && request.resource.data.quantidade <= 35
+        && request.resource.data.diasPorSemana is number
+        && request.resource.data.diasPorSemana >= 1
+        && request.resource.data.diasPorSemana <= 7
+        && request.resource.data.usoHorasDia is number
+        && request.resource.data.usoHorasDia >= 0
+        && request.resource.data.usoHorasDia <= 24
+        && request.resource.data.consumoMensal is number;
+    }
+
+    function validMissionProgress() {
+      return request.resource.data.keys().hasOnly([
+          'ativa',
+          'concluida',
+          'updatedAt'
+        ])
+        && request.resource.data.ativa is bool
+        && request.resource.data.concluida is bool;
+    }
+
+    function validCommunityProfile(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.nome is string
+        && request.resource.data.tipoUsuario in ['estudante', 'morador']
+        && request.resource.data.score is number
+        && request.resource.data.score == ownUserAfter().data.score
+        && request.resource.data.pontuacao == request.resource.data.score
+        && request.resource.data.kwhSalvo == ownUserAfter().data.kwhSalvo
+        && request.resource.data.escolaId is string
+        && request.resource.data.escolaNome is string
+        && request.resource.data.GRE is string;
+    }
+
+    function validSchoolAggregateUpdate(schoolId) {
+      return ownUserAfter().data.tipoUsuario == 'estudante'
+        && ownUserAfter().data.escolaId == schoolId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'auditores',
+          'scoreTotal',
+          'impactoKwhTotal',
+          'updatedAt'
+        ])
+        && request.resource.data.auditores is number
+        && request.resource.data.scoreTotal is number
+        && request.resource.data.auditores >= resource.data.auditores
+        && request.resource.data.auditores - resource.data.auditores <= 1
+        && request.resource.data.scoreTotal >= resource.data.scoreTotal
+        && request.resource.data.scoreTotal - resource.data.scoreTotal <= 200
+        && (!('impactoKwhTotal' in resource.data)
+          || request.resource.data.impactoKwhTotal >= resource.data.impactoKwhTotal)
+        && (!('impactoKwhTotal' in resource.data)
+          || request.resource.data.impactoKwhTotal - resource.data.impactoKwhTotal <= 80);
+    }
+
+    match /users/{uid} {
+      allow create: if isOwner(uid)
+        && (
+          validPendingUser(uid)
+          || (validCompleteUser(uid) && request.resource.data.score == 0)
+        );
+
+      allow read: if isOwner(uid);
+
+      allow update: if isOwner(uid)
+        && validCompleteUser(uid)
+        && userCannotChangeIdentity()
+        && onboardingCannotBeUndone()
+        && scoreOnlyMovesByAllowedDelta();
+
+      allow delete: if false;
+
+      match /devices/{deviceDocId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validUserDevice();
+        allow delete: if isOwner(uid);
+      }
+
+      match /missions/{missionId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validMissionProgress();
+        allow delete: if false;
+      }
+    }
+
+    match /community/{uid} {
+      allow read: if true;
+      allow create, update: if isOwner(uid) && validCommunityProfile(uid);
+      allow delete: if false;
+    }
+
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow create, delete: if false;
+      allow update: if signedIn() && validSchoolAggregateUpdate(schoolId);
+    }
+
+    match /devices/{deviceId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /missions/{missionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /rankings/{rankingId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

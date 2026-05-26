@@ -1,0 +1,83 @@
+[
+  {
+    "id": "ceti_didacio_silva",
+    "nome": "CETI Didácio Silva",
+    "GRE": "21ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Sudeste",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_joao_henrique_almeida_sousa",
+    "nome": "CETI João Henrique de Almeida Sousa",
+    "GRE": "19ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Sul",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_governador_dirceu_mendes_arcoverde",
+    "nome": "CETI Governador Dirceu Mendes Arcoverde",
+    "GRE": "20ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Leste",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_professor_raldir_cavalcante_bastos",
+    "nome": "CETI Professor Raldir Cavalcante Bastos",
+    "GRE": "21ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Sudeste",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_professor_jose_amavel",
+    "nome": "CETI Professor José Amável",
+    "GRE": "20ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Nordeste",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_duque_de_caxias",
+    "nome": "CETI Duque de Caxias",
+    "GRE": "21ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Sudeste",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_zacarias_de_gois",
+    "nome": "CETI Zacarias de Góis",
+    "GRE": "04ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Centro/Norte",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_professor_darcy_araujo",
+    "nome": "CETI Professor Darcy Araújo",
+    "GRE": "20ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Leste",
+    "auditores": 0,
+    "scoreTotal": 0
+  },
+  {
+    "id": "ceti_professor_pinheiro_machado",
+    "nome": "CETI Professor Pinheiro Machado",
+    "GRE": "21ª GRE",
+    "cidade": "Teresina",
+    "regiao": "Teresina Sudeste",
+    "auditores": 0,
+    "scoreTotal": 0
+  }
+]
