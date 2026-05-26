@@ -27,10 +27,12 @@ import { normalizarUsoAparelho } from "../utils/energyCalculations";
 import { criarKeywords, normalizarBusca, pontuarBusca } from "../utils/text";
 
 const RANKING_REFRESH_MS = 10 * 60 * 1000;
+const RANKINGS_STORAGE_KEY = "energiapi:rankings-cache";
 
 const cache = {
   schools: new Map(),
   devices: new Map(),
+  rankings: new Map(),
 };
 
 const colecao = (nome) => collection(db, nome);
@@ -48,10 +50,19 @@ const normalizarTipoUsuario = (tipo) => {
 
 const normalizarEscola = (school = {}) => {
   const GRE = school.GRE || school.gre || "";
+  const nome =
+    school.nome ||
+    school.name ||
+    school.escolaNome ||
+    school.escola ||
+    school.razaoSocial ||
+    "CETI EnergiaPI";
   return {
     ...school,
+    nome,
     GRE,
     gre: GRE,
+    cidade: school.cidade || school.municipio || "",
     regiao: school.regiao || "",
     auditores: Number(school.auditores || school.alunosAtivos || 0),
     alunosAtivos: Number(school.auditores || school.alunosAtivos || 0),
@@ -116,6 +127,27 @@ const cacheSet = (mapa, chave, value) => {
   return value;
 };
 
+const lerRankingsCache = () => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(RANKINGS_STORAGE_KEY));
+    if (!cached?.lastUpdated) return null;
+    if (Date.now() - new Date(cached.lastUpdated).getTime() > RANKING_REFRESH_MS) {
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
+};
+
+const salvarRankingsCache = (rankings) => {
+  try {
+    localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(rankings));
+  } catch {
+    // Cache local é apenas otimização de UX.
+  }
+};
+
 const withTimeout = (promise, timeoutMs = 4500) =>
   new Promise((resolve, reject) => {
     const timer = globalThis.setTimeout(() => {
@@ -169,6 +201,7 @@ export const montarUserProfile = (firebaseUser, perfil = {}) => {
     nome: perfil.nome || firebaseUser.displayName || "Auditor EnergiaPI",
     email: (perfil.email || firebaseUser.email || "").toLowerCase(),
     tipoUsuario,
+    authProvider: perfil.authProvider || "password",
     onboardingCompleto: Boolean(perfil.onboardingCompleto),
     escolaId: estudante ? perfil.escolaId || "" : "",
     escolaNome: estudante ? perfil.escolaNome || perfil.escola || "" : "",
@@ -196,6 +229,7 @@ const montarPendingUserProfile = (firebaseUser, perfil = {}) => ({
   uid: firebaseUser.uid,
   nome: perfil.nome || firebaseUser.displayName || "Auditor EnergiaPI",
   email: (perfil.email || firebaseUser.email || "").toLowerCase(),
+  authProvider: perfil.authProvider || "google",
   tipoUsuario: "",
   onboardingCompleto: false,
   escolaId: "",
@@ -600,6 +634,15 @@ const listarRankingComunidade = async () => {
 export const subscribeRankings = (callback, options = {}) => {
   let ativo = true;
   const intervalMs = options.intervalMs || RANKING_REFRESH_MS;
+  const cached =
+    cacheGet(cache.rankings, "last") || lerRankingsCache();
+
+  if (cached) {
+    callback({
+      ...cached,
+      fromCache: true,
+    });
+  }
 
   const carregar = async () => {
     try {
@@ -609,18 +652,25 @@ export const subscribeRankings = (callback, options = {}) => {
       ]);
 
       if (ativo) {
-        callback({
+        const payload = {
           escolas,
           comunidade,
           lastUpdated: new Date().toISOString(),
-        });
+          fromCache: false,
+        };
+        cacheSet(cache.rankings, "last", payload);
+        salvarRankingsCache(payload);
+        callback(payload);
       }
     } catch (error) {
       console.warn("[Firestore rankings fallback]", error?.message);
       if (ativo) {
+        const fallback = cacheGet(cache.rankings, "last") || lerRankingsCache();
         callback({
-          escolas: RANKING_ESCOLAS_SEED.map(normalizarEscola),
-          comunidade: [],
+          escolas: fallback?.escolas || RANKING_ESCOLAS_SEED.map(normalizarEscola),
+          comunidade: fallback?.comunidade || [],
+          error: error?.message || "ranking-unavailable",
+          fromCache: Boolean(fallback),
           lastUpdated: new Date().toISOString(),
         });
       }

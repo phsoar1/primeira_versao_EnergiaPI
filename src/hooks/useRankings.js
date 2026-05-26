@@ -6,16 +6,24 @@ export const useRankings = () => {
     escolas: [],
     comunidade: [],
     loading: true,
+    error: null,
+    fromCache: false,
     lastUpdated: null,
   });
 
   useEffect(
     () =>
       subscribeRankings((dados) =>
-        setRankings({
-          ...dados,
+        setRankings((atual) => ({
+          escolas: dados.escolas?.length ? dados.escolas : atual.escolas,
+          comunidade: dados.comunidade?.length
+            ? dados.comunidade
+            : atual.comunidade,
           loading: false,
-        }),
+          error: dados.error || null,
+          fromCache: Boolean(dados.fromCache),
+          lastUpdated: dados.lastUpdated || atual.lastUpdated,
+        })),
       ),
     [],
   );

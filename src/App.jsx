@@ -220,6 +220,22 @@ const salvarPerfilUsuario = (uid, perfilUsuario) => {
   );
 };
 
+const detectarAuthProvider = (firebaseUser, perfil = {}) => {
+  if (perfil.authProvider === "google" || perfil.provider === "google") {
+    return "google";
+  }
+
+  if (perfil.authProvider === "password" || perfil.provider === "password") {
+    return "password";
+  }
+
+  return firebaseUser?.providerData?.some(
+    (providerInfo) => providerInfo.providerId === "google.com",
+  )
+    ? "google"
+    : "password";
+};
+
 const registrarErroAuth = (contexto, error) => {
   console.error(
     `[Firebase Auth] ${contexto}`,
@@ -256,6 +272,7 @@ const carregarPerfilUsuario = (firebaseUser) => {
     gre: tipoUsuario === "estudante" ? perfilSalvo?.GRE || perfilSalvo?.gre || "" : "",
     score: Number(perfilSalvo?.score || 0),
     escola: tipoUsuario === "estudante" ? escolaNome : ESCOLA_NAO_APLICA,
+    authProvider: detectarAuthProvider(firebaseUser, perfilSalvo || {}),
     endereco: perfilSalvo?.endereco || "",
     numero: perfilSalvo?.numero || "",
     cidade: perfilSalvo?.cidade || "",
@@ -345,6 +362,7 @@ export default function App() {
   const [salvandoAparelho, setSalvandoAparelho] = useState(false);
   const [buscaTemplate, setBuscaTemplate] = useState("");
   const [categoriaTemplate, setCategoriaTemplate] = useState("");
+  const [quickEdit, setQuickEdit] = useState(null);
 
   // REFERÊNCIAS PARA CLIQUE FORA DOS MODAIS
   const modalTemplatesRef = useRef(null);
@@ -378,7 +396,12 @@ export default function App() {
   const missoesFuturas = missoesComProgresso.filter(
     (missao) => !missao.desbloqueada,
   );
-  const { escolas: rankingEscolas, comunidade: rankingComunidade } = useRankings();
+  const {
+    escolas: rankingEscolas,
+    comunidade: rankingComunidade,
+    loading: rankingsCarregando,
+    error: rankingsErro,
+  } = useRankings();
 
   // SISTEMA DE CORES DINÂMICO
   const isDark = tema === "escuro";
@@ -439,6 +462,7 @@ export default function App() {
         : "sua comunidade",
     tipoUsuario: usuario?.tipoUsuario === "morador" ? "morador" : "estudante",
     perfil: usuario?.tipoUsuario === "morador" || usuario?.perfil === "morador" ? "morador" : "estudante",
+    authProvider: usuario?.authProvider || "password",
     score: Number(usuario?.score || pontuacao || 0),
     onboardingCompleto: usuario?.onboardingCompleto === true,
   };
@@ -446,7 +470,13 @@ export default function App() {
   const bairroUsuario =
     usuarioSeguro.endereco.split(",")[0] || "sua comunidade";
   const onboardingPendente =
-    autenticado && !authCarregando && usuario && usuario.onboardingCompleto !== true;
+    autenticado &&
+    !authCarregando &&
+    usuario &&
+    usuario.authProvider === "google" &&
+    usuario.onboardingCompleto !== true;
+  const bloqueandoRenderCadastroEmail =
+    authProcessando === "email-cadastro" && autenticado;
   const abaIndiceAtual = useMemo(
     () => Math.max(ABAS_APP.indexOf(abaSelecionada), 0),
     [abaSelecionada],
@@ -538,6 +568,7 @@ export default function App() {
         ? origem.escolaNome || origem.escola || ""
         : "";
     const GRE = tipoUsuario === "estudante" ? origem.GRE || origem.gre || "" : "";
+    const authProvider = detectarAuthProvider(firebaseUser, origem);
     const perfilSeguro = {
       ...origem,
       uid: firebaseUser.uid,
@@ -545,6 +576,7 @@ export default function App() {
       email: origem.email || firebaseUser.email || "",
       tipoUsuario,
       perfil: perfilVisual,
+      authProvider,
       onboardingCompleto: origem.onboardingCompleto === true && Boolean(tipoUsuario),
       escolaId: tipoUsuario === "estudante" ? origem.escolaId || "" : "",
       escolaNome,
@@ -783,6 +815,7 @@ export default function App() {
           ...(atual || {}),
           ...perfilFirestore,
           tipoUsuario,
+          authProvider: perfilFirestore.authProvider || atual?.authProvider || "password",
           perfil:
             tipoUsuario || (atual?.perfil === "morador" ? "morador" : "estudante"),
           onboardingCompleto:
@@ -876,6 +909,64 @@ export default function App() {
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [fecharModalTemplates, modalTemplatesAberto, modalNovoAberto]);
+
+  useEffect(() => {
+    if (!quickEdit) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (event.target.closest("[data-quick-editor='true']")) return;
+      if (event.target.closest("[data-quick-value='true']")) return;
+      setQuickEdit(null);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setQuickEdit(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [quickEdit]);
+
+  useEffect(() => {
+    if (!autenticado || onboardingPendente) return undefined;
+
+    const root = document.querySelector("[data-app-scroll-root='true']");
+    if (!root) return undefined;
+
+    const elements = root.querySelectorAll(".reveal-on-scroll");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        root,
+        rootMargin: "0px 0px -8% 0px",
+        threshold: 0.08,
+      },
+    );
+
+    elements.forEach((element, index) => {
+      element.style.setProperty("--reveal-delay", `${Math.min(index * 38, 220)}ms`);
+      observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, [
+    abaSelecionada,
+    autenticado,
+    onboardingPendente,
+    eletrodomesticos.length,
+    rankingComunidade.length,
+    rankingEscolas.length,
+  ]);
 
   // MOTOR DE "INSIGHTS INTELIGENTES" (Requisito 4)
   const gerarInsightsInteligentes = () => {
@@ -1043,6 +1134,7 @@ export default function App() {
         nome: nomeUsuario,
         email: emailNormalizado,
         tipoUsuario: perfil === "estudante" ? "estudante" : "morador",
+        authProvider: "password",
         onboardingCompleto: true,
         escolaId: perfil === "estudante" ? escolaSelecionada?.id || "" : "",
         escolaNome: perfil === "estudante" ? escolaUsuario : "",
@@ -1081,6 +1173,7 @@ export default function App() {
       perfilSalvo || {
         nome: firebaseUser.displayName || nomeUsuario || "Auditor EnergiaPI",
         email: firebaseUser.email || emailNormalizado,
+        authProvider: "google",
       },
     );
 
@@ -1174,6 +1267,7 @@ export default function App() {
         nome: usuario?.nome || firebaseUser.displayName || "Auditor EnergiaPI",
         email: usuario?.email || firebaseUser.email || "",
         score: Number(usuario?.score || 0),
+        authProvider: "google",
         perfil: dadosOnboarding.tipoUsuario,
         escola:
           dadosOnboarding.tipoUsuario === "estudante"
@@ -1258,6 +1352,39 @@ export default function App() {
     });
   };
 
+  const abrirEditorRapido = (event, config) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const largura = 238;
+    setQuickEdit({
+      ...config,
+      value: Number(config.value || config.min),
+      anchor: {
+        top: rect.bottom + 10,
+        left: Math.min(
+          Math.max(12, rect.left + rect.width - largura),
+          window.innerWidth - largura - 12,
+        ),
+      },
+    });
+  };
+
+  const aplicarValorRapido = (nextValue) => {
+    if (!quickEdit) return;
+    const decimals = String(quickEdit.step).includes(".")
+      ? String(quickEdit.step).split(".")[1].length
+      : 0;
+    const next = Number(
+      Math.min(
+        Math.max(Number(nextValue), quickEdit.min),
+        quickEdit.max,
+      ).toFixed(decimals),
+    );
+
+    setQuickEdit((atual) => (atual ? { ...atual, value: next } : atual));
+    atualizarEletrodomestico(quickEdit.deviceId, quickEdit.field, next);
+  };
+
   const solicitarExclusaoEletrodomestico = (aparelho) => {
     setAparelhoParaExcluir(aparelho);
   };
@@ -1317,35 +1444,73 @@ export default function App() {
 
   const SliderAnimado = ({ value, min, max, step, onChange, colorClass }) => {
     const sliderRef = useRef(null);
+    const frameRef = useRef(null);
+    const nextValueRef = useRef(value);
     const percentage = ((value - min) / (max - min)) * 100;
+
+    useEffect(
+      () => () => {
+        if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      },
+      [],
+    );
+
+    const emitirMudanca = (nextValue) => {
+      nextValueRef.current = nextValue;
+      if (frameRef.current) return;
+
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        onChange({ target: { value: String(nextValueRef.current) } });
+      });
+    };
+
     const ajustarPorPonteiro = (event) => {
       const rect = sliderRef.current?.getBoundingClientRect();
       if (!rect) return;
       const raw = ((event.clientX - rect.left) / rect.width) * (max - min) + min;
       const stepped = Math.round(raw / step) * step;
       const nextValue = Math.min(Math.max(stepped, min), max);
-      onChange({ target: { value: String(nextValue) } });
+      emitirMudanca(nextValue);
+    };
+
+    const bloquearGestoGlobal = (event) => {
+      event.stopPropagation();
+      event.preventDefault();
     };
 
     return (
       <div
         ref={sliderRef}
         data-no-swipe="true"
-        className="relative w-full h-10 rounded-full flex items-center group touch-none select-none"
+        data-slider-control="true"
+        className="relative w-full h-11 rounded-full flex items-center group touch-none select-none slider-ios"
+        onTouchStart={(event) => event.stopPropagation()}
+        onTouchMove={(event) => event.stopPropagation()}
         onPointerDown={(event) => {
+          bloquearGestoGlobal(event);
           event.currentTarget.setPointerCapture?.(event.pointerId);
           ajustarPorPonteiro(event);
         }}
         onPointerMove={(event) => {
           if (event.buttons !== 1) return;
+          bloquearGestoGlobal(event);
           ajustarPorPonteiro(event);
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+        }}
+        onPointerCancel={(event) => {
+          event.stopPropagation();
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
         }}
       >
         <div
           className={`absolute left-0 right-0 top-1/2 h-7 -translate-y-1/2 rounded-full ${isDark ? "bg-slate-900/80" : "bg-slate-200/90"} shadow-inner border ${isDark ? "border-white/5" : "border-white/70"}`}
         />
         <div
-          className={`absolute left-1 top-1/2 h-5 -translate-y-1/2 ${colorClass} rounded-full transition-[width] duration-75 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]`}
+          className={`absolute left-1 top-1/2 h-5 -translate-y-1/2 ${colorClass} rounded-full transition-[width] duration-75 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] slider-fill`}
           style={{ width: `calc(${percentage}% - 0.5rem)` }}
         />
         <input
@@ -1355,10 +1520,11 @@ export default function App() {
           step={step}
           value={value}
           onChange={onChange}
+          data-no-swipe="true"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
         />
         <div
-          className="absolute w-9 h-9 bg-white rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.28)] ring-1 ring-black/5 transition-[left,transform] duration-75 ease-out pointer-events-none transform -translate-x-1/2 group-active:scale-95"
+          className="absolute w-9 h-9 bg-white rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.28)] ring-1 ring-black/5 transition-[left,transform] duration-75 ease-out pointer-events-none transform -translate-x-1/2 group-active:scale-95 slider-thumb"
           style={{ left: `${percentage}%` }}
         />
       </div>
@@ -1390,7 +1556,13 @@ export default function App() {
 
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < SWIPE_MIN_DISTANCE || Math.abs(deltaY) > 70) return;
+    const duration = Math.max(Date.now() - start.time, 1);
+    const velocity = Math.abs(deltaX) / duration;
+    const horizontalIntent = Math.abs(deltaX) > Math.abs(deltaY) * 1.35;
+    const shouldSwipe =
+      Math.abs(deltaX) >= SWIPE_MIN_DISTANCE || velocity > 0.42;
+
+    if (!horizontalIntent || !shouldSwipe || Math.abs(deltaY) > 92) return;
 
     const nextIndex =
       deltaX < 0
@@ -1410,7 +1582,35 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
         html, body, #root { overscroll-behavior-y: contain; }
+        body { touch-action: manipulation; }
         .text-neon-green { color: #10B981; }
+        .gpu-smooth {
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          -webkit-font-smoothing: antialiased;
+        }
+        .reveal-on-scroll {
+          opacity: 0;
+          transform: translate3d(0, 16px, 0) scale(0.985);
+          transition:
+            opacity 520ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+            transform 520ms cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+          will-change: opacity, transform;
+        }
+        .reveal-on-scroll.is-visible {
+          opacity: 1;
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        .slider-ios {
+          touch-action: none;
+          contain: layout paint;
+          will-change: transform;
+        }
+        .slider-fill,
+        .slider-thumb {
+          will-change: width, left, transform;
+          transform: translateZ(0);
+        }
         .twemoji {
           width: 1em;
           height: 1em;
@@ -1429,6 +1629,7 @@ export default function App() {
           scroll-behavior: smooth;
           overscroll-behavior: contain;
           will-change: scroll-position;
+          transform: translateZ(0);
         }
         input[type="range"] {
           touch-action: none;
@@ -1440,6 +1641,15 @@ export default function App() {
           to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .animate-fade-in-scale { animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @media (prefers-reduced-motion: reduce) {
+          .reveal-on-scroll,
+          .animate-fade-in-scale {
+            opacity: 1;
+            transform: none;
+            animation: none;
+            transition: none;
+          }
+        }
         
         /* Premium Apple-like Mesh Gradient */
         .mesh-gradient-auth {
@@ -1477,14 +1687,80 @@ export default function App() {
       )}
 
       {/* TELA DE AUTENTICAÇÃO / CADASTRO */}
-      {authCarregando ? (
+      {quickEdit && (
+        <div
+          data-quick-editor="true"
+          className={`${tm.modal} fixed z-[120] w-[238px] rounded-[1.5rem] border p-3 shadow-2xl animate-fade-in-scale gpu-smooth`}
+          style={{
+            top: quickEdit.anchor.top,
+            left: quickEdit.anchor.left,
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className={`text-[10px] font-black uppercase tracking-widest ${tm.textMuted}`}>
+              {quickEdit.label}
+            </p>
+            <button
+              type="button"
+              onClick={() => setQuickEdit(null)}
+              className={`p-1.5 rounded-full hover:bg-slate-500/10 ${tm.textMuted} hover:text-[#EF4444] transition-colors`}
+              aria-label="Fechar ajuste rapido"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="grid grid-cols-[42px_1fr_42px] items-center gap-2">
+            <button
+              type="button"
+              onClick={() => aplicarValorRapido(quickEdit.value - quickEdit.step)}
+              className={`${isDark ? "bg-slate-900/70 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"} h-10 rounded-2xl border text-lg font-black active:scale-95 transition-all`}
+            >
+              -
+            </button>
+            <input
+              type="number"
+              min={quickEdit.min}
+              max={quickEdit.max}
+              step={quickEdit.step}
+              value={quickEdit.value}
+              onChange={(event) => aplicarValorRapido(event.target.value)}
+              className={`h-10 text-center rounded-2xl border text-sm font-black outline-none ${tm.input}`}
+            />
+            <button
+              type="button"
+              onClick={() => aplicarValorRapido(quickEdit.value + quickEdit.step)}
+              className={`${isDark ? "bg-slate-900/70 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"} h-10 rounded-2xl border text-lg font-black active:scale-95 transition-all`}
+            >
+              +
+            </button>
+          </div>
+          <input
+            type="range"
+            min={quickEdit.min}
+            max={quickEdit.max}
+            step={quickEdit.step}
+            value={quickEdit.value}
+            onChange={(event) => aplicarValorRapido(event.target.value)}
+            className="mt-3 w-full accent-[#10B981]"
+          />
+          <p className="mt-2 text-center text-[10px] font-black uppercase tracking-widest text-[#10B981]">
+            {quickEdit.value}
+            {quickEdit.suffix}
+          </p>
+        </div>
+      )}
+
+      {authCarregando || bloqueandoRenderCadastroEmail ? (
         <div className="flex-1 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative">
           <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-4">
             <div className="flex flex-col items-center gap-4">
               <LogoEnergiaPI size={72} className="mb-2" />
               <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin" />
               <p className="text-slate-400 text-[10px] text-center font-bold uppercase tracking-wider">
-                Restaurando sessao segura
+                {bloqueandoRenderCadastroEmail
+                  ? "Finalizando cadastro seguro"
+                  : "Restaurando sessao segura"}
               </p>
             </div>
           </div>
@@ -1966,13 +2242,14 @@ export default function App() {
 
           {/* CONTEÚDO PRINCIPAL */}
           <main
-            className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-12 scroll-custom ios-scroll overflow-y-auto touch-pan-y"
+            data-app-scroll-root="true"
+            className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-12 scroll-custom ios-scroll overflow-y-auto touch-pan-y gpu-smooth"
             onTouchStart={handleSwipeStart}
             onTouchEnd={handleSwipeEnd}
           >
             {/* ABA: RESUMO / DASHBOARD */}
             {abaSelecionada === "dashboard" && (
-              <div className="space-y-8 animate-fade-in-scale">
+              <div className="space-y-8 animate-fade-in-scale reveal-on-scroll">
                 {/* Boas-vindas Banner */}
                 <div
                   className={`border p-6 md:p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden ${isDark ? "bg-gradient-to-r from-[#031c0e] via-[#0B1426] to-[#0B1426] border-slate-800" : "bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-100 shadow-sm"}`}
@@ -2018,7 +2295,7 @@ export default function App() {
                 </div>
 
                 {/* INSIGHTS INTELIGENTES (Requisito 4) */}
-                <div className="space-y-4 animate-fade-in-scale">
+                <div className="space-y-4 animate-fade-in-scale reveal-on-scroll">
                   <div className="flex items-center gap-2">
                     <Sparkles size={20} className="text-[#10B981]" />
                     <h3
@@ -2293,7 +2570,7 @@ export default function App() {
 
             {/* ABA: CONFIGURAÇÃO DE APARELHOS */}
             {abaSelecionada === "aparelhos" && (
-              <div className="space-y-6 animate-fade-in-scale">
+              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3
@@ -2352,7 +2629,7 @@ export default function App() {
                       return (
                         <div
                           key={elet.id}
-                          className={`border rounded-[2rem] p-6 space-y-5 transition-all duration-300 ${tm.card} ${!elet.ativo ? "opacity-50 grayscale-[0.3]" : ""}`}
+                          className={`border rounded-[2rem] p-6 space-y-5 transition-all duration-300 reveal-on-scroll gpu-smooth ${tm.card} ${!elet.ativo ? "opacity-50 grayscale-[0.3]" : ""}`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
@@ -2406,20 +2683,31 @@ export default function App() {
                                   {elet.potencia} W
                                 </span>
                               </div>
-                              <div
-                                className={`rounded-2xl border px-4 py-3 text-xs font-bold ${isDark ? "bg-slate-900/60 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}
-                              >
-                                Potência vinda do catálogo ou do aparelho customizado.
-                              </div>
                             </div>
                             <div>
                               <div className="flex justify-between text-[11px] font-semibold mb-2">
                                 <span className={tm.textMuted}>
                                   Uso Médio Diário:
                                 </span>
-                                <span className={`font-bold ${tm.text}`}>
+                                <button
+                                  type="button"
+                                  data-quick-value="true"
+                                  onClick={(event) =>
+                                    abrirEditorRapido(event, {
+                                      deviceId: elet.id,
+                                      field: "usoHorasDia",
+                                      label: "Uso diario",
+                                      value: elet.usoHorasDia ?? elet.horasDia,
+                                      min: 0,
+                                      max: 24,
+                                      step: 0.5,
+                                      suffix: " h/dia",
+                                    })
+                                  }
+                                  className={`font-bold ${tm.text} touch-manipulation transition-colors hover:text-[#10B981]`}
+                                >
                                   {elet.usoHorasDia ?? elet.horasDia} h/dia
-                                </span>
+                                </button>
                               </div>
                               <SliderAnimado
                                 value={elet.usoHorasDia ?? elet.horasDia}
@@ -2441,9 +2729,25 @@ export default function App() {
                                 <span className={tm.textMuted}>
                                   Quantas vezes por semana:
                                 </span>
-                                <span className={`font-bold ${tm.text}`}>
+                                <button
+                                  type="button"
+                                  data-quick-value="true"
+                                  onClick={(event) =>
+                                    abrirEditorRapido(event, {
+                                      deviceId: elet.id,
+                                      field: "diasPorSemana",
+                                      label: "Frequencia",
+                                      value: elet.diasPorSemana || 1,
+                                      min: 1,
+                                      max: 7,
+                                      step: 1,
+                                      suffix: "x/sem",
+                                    })
+                                  }
+                                  className={`font-bold ${tm.text} touch-manipulation transition-colors hover:text-[#10B981]`}
+                                >
                                   {elet.diasPorSemana || 1}x
-                                </span>
+                                </button>
                               </div>
                               <SliderAnimado
                                 value={elet.diasPorSemana || 1}
@@ -2465,9 +2769,25 @@ export default function App() {
                                 <span className={tm.textMuted}>
                                   Quantidade de aparelhos:
                                 </span>
-                                <span className={`font-bold ${tm.text}`}>
+                                <button
+                                  type="button"
+                                  data-quick-value="true"
+                                  onClick={(event) =>
+                                    abrirEditorRapido(event, {
+                                      deviceId: elet.id,
+                                      field: "quantidade",
+                                      label: "Quantidade",
+                                      value: elet.quantidade || 1,
+                                      min: 1,
+                                      max: 35,
+                                      step: 1,
+                                      suffix: "",
+                                    })
+                                  }
+                                  className={`font-bold ${tm.text} touch-manipulation transition-colors hover:text-[#10B981]`}
+                                >
                                   {elet.quantidade || 1}
-                                </span>
+                                </button>
                               </div>
                               <SliderAnimado
                                 value={elet.quantidade || 1}
@@ -2527,7 +2847,7 @@ export default function App() {
 
             {/* ABA: MISSÕES GAMIFICADAS (Requisito 2) */}
             {abaSelecionada === "missões" && (
-              <div className="space-y-6 animate-fade-in-scale">
+              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
                 <div>
                   <h3
                     className={`text-2xl font-extrabold tracking-tight ${tm.text}`}
@@ -2757,7 +3077,7 @@ export default function App() {
 
             {/* ABA: COMUNIDADE (Requisito 6) */}
             {abaSelecionada === "comunidade" && (
-              <div className="space-y-6 animate-fade-in-scale">
+              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h3
@@ -2796,7 +3116,17 @@ export default function App() {
                   <div
                     className={`divide-y ${isDark ? "divide-slate-800/60" : "divide-slate-100"}`}
                   >
-                    {rankingComunidade.length === 0 ? (
+                    {rankingsCarregando && rankingComunidade.length === 0 ? (
+                      <div className="px-6 py-10 text-center">
+                        <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                        <p className={`text-sm font-bold ${tm.text}`}>
+                          Sincronizando comunidade...
+                        </p>
+                        <p className={`text-xs mt-1 ${tm.textMuted}`}>
+                          Buscando ranking em tempo real.
+                        </p>
+                      </div>
+                    ) : rankingComunidade.length === 0 ? (
                       <div className="px-6 py-10 text-center">
                         <p className={`text-sm font-bold ${tm.text}`}>
                           Nenhum auditor ranqueado ainda.
@@ -2804,13 +3134,18 @@ export default function App() {
                         <p className={`text-xs mt-1 ${tm.textMuted}`}>
                           Os dados aparecem quando usuários reais concluem o onboarding.
                         </p>
+                        {rankingsErro && (
+                          <p className="text-[10px] mt-3 font-bold uppercase tracking-wider text-[#F59E0B]">
+                            Exibindo fallback local enquanto o Firestore responde.
+                          </p>
+                        )}
                       </div>
                     ) : rankingComunidade.map((item, index) => {
                       const isCurrentUser = item.nome === usuarioSeguro.nome;
                       return (
                         <div
                           key={item.id}
-                          className={`grid grid-cols-[auto_1fr] md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-5 items-center transition-all ${
+                          className={`grid grid-cols-[auto_1fr_auto] md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-5 items-center transition-all reveal-on-scroll ${
                             isCurrentUser
                               ? "bg-[#10B981]/5 border-y border-[#10B981]/15"
                               : isDark
@@ -2818,7 +3153,7 @@ export default function App() {
                                 : "hover:bg-slate-50"
                           }`}
                         >
-                          <div className="md:col-span-1 text-center font-black text-sm row-span-2 md:row-span-1">
+                          <div className="md:col-span-1 text-center font-black text-sm row-span-2 md:row-span-1 self-start md:self-center pt-1 md:pt-0">
                             {index === 0 ? (
                               <span className="text-xl">
                                 <Emoji>{EMOJIS.ouro}</Emoji>
@@ -2838,12 +3173,12 @@ export default function App() {
                             )}
                           </div>
                           <div className="md:col-span-5 flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-full bg-[#10B981]/10 flex items-center justify-center border border-[#10B981]/25 text-sm font-bold">
+                            <div className="w-9 h-9 rounded-full bg-[#10B981]/10 flex shrink-0 items-center justify-center border border-[#10B981]/25 text-sm font-bold">
                               {(item.nome || "A").charAt(0)}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <h4
-                                className={`font-extrabold text-xs sm:text-sm flex items-center gap-2 ${tm.text}`}
+                                className={`font-extrabold text-xs sm:text-sm flex flex-wrap items-center gap-2 leading-snug ${tm.text}`}
                               >
                                 {item.nome}
                                 {isCurrentUser && (
@@ -2859,22 +3194,22 @@ export default function App() {
                               </p>
                             </div>
                           </div>
-                          <div className="col-start-2 md:col-start-auto md:col-span-3 min-w-0">
-                            <p className={`text-xs font-bold ${tm.text}`}>
+                          <div className="col-start-2 col-span-2 md:col-start-auto md:col-span-3 min-w-0">
+                            <p className={`text-xs font-bold truncate md:whitespace-normal ${tm.text}`}>
                               {item.escola}
                             </p>
                             <p className="text-[10px] text-[#10B981] font-bold mt-0.5">
                               {item.kwhSalvo} kWh Salvos
                             </p>
                           </div>
-                          <div className="col-start-2 md:col-start-auto md:col-span-2 md:text-right text-lg select-none flex md:block gap-1">
+                          <div className="col-start-2 md:col-start-auto md:col-span-2 md:text-right text-lg select-none flex md:block gap-1 min-w-0">
                             {(item.badges || []).map((badge, badgeIndex) => (
                               <Emoji key={`${item.id}-${badgeIndex}`}>
                                 {badge}
                               </Emoji>
                             ))}
                           </div>
-                          <div className="col-start-2 md:col-start-auto md:col-span-1 md:text-right font-black text-xs text-neon-green">
+                          <div className="col-start-3 row-start-1 md:row-start-auto md:col-start-auto md:col-span-1 md:text-right font-black text-xs text-neon-green justify-self-end">
                             {item.pontuacao || item.score || 0}
                           </div>
                         </div>
@@ -2887,7 +3222,7 @@ export default function App() {
 
             {/* ABA: RANKING ESCOLAS */}
             {abaSelecionada === "ranking" && (
-              <div className="space-y-6 animate-fade-in-scale">
+              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h3
@@ -2927,12 +3262,26 @@ export default function App() {
                   <div
                     className={`divide-y ${isDark ? "divide-slate-800/60" : "divide-slate-100"}`}
                   >
-                    {rankingEscolas.map((escola, index) => (
+                    {rankingsCarregando && rankingEscolas.length === 0 ? (
+                      <div className="px-6 py-10 text-center">
+                        <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                        <p className={`text-sm font-bold ${tm.text}`}>
+                          Sincronizando escolas...
+                        </p>
+                      </div>
+                    ) : rankingEscolas.map((escola, index) => {
+                      const nomeEscola =
+                        escola.nome ||
+                        escola.name ||
+                        escola.escolaNome ||
+                        escola.escola ||
+                        "CETI EnergiaPI";
+                      return (
                       <div
                         key={escola.id || index}
-                        className={`grid grid-cols-[auto_1fr] md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-6 items-center transition-colors duration-200 ${escola.nome === escolaUsuario ? (isDark ? "bg-[#10B981]/5 border-y border-[#10B981]/20" : "bg-[#10B981]/5 border-y border-[#10B981]/20") : isDark ? "hover:bg-slate-800/30" : "hover:bg-slate-50"}`}
+                        className={`grid grid-cols-[auto_1fr_auto] md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-6 items-center transition-colors duration-200 reveal-on-scroll ${nomeEscola === escolaUsuario ? (isDark ? "bg-[#10B981]/5 border-y border-[#10B981]/20" : "bg-[#10B981]/5 border-y border-[#10B981]/20") : isDark ? "hover:bg-slate-800/30" : "hover:bg-slate-50"}`}
                       >
-                        <div className="md:col-span-1 text-center font-black text-sm row-span-2 md:row-span-1">
+                        <div className="md:col-span-1 text-center font-black text-sm row-span-2 md:row-span-1 self-start md:self-center pt-1 md:pt-0">
                           {index === 0 ? (
                             <span className="text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">
                               <Emoji>{EMOJIS.ouro}</Emoji>
@@ -2953,10 +3302,10 @@ export default function App() {
                         </div>
                         <div className="md:col-span-6 min-w-0">
                           <h4
-                            className={`font-bold text-xs sm:text-sm flex items-center gap-2 ${tm.text}`}
+                            className={`font-bold text-xs sm:text-sm flex flex-wrap items-center gap-2 leading-snug ${tm.text}`}
                           >
-                            {escola.nome}
-                            {escola.nome === escolaUsuario && (
+                            {nomeEscola}
+                            {nomeEscola === escolaUsuario && (
                               <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">
                                 Sua Escola
                               </span>
@@ -2969,19 +3318,20 @@ export default function App() {
                           </p>
                         </div>
                         <div
-                          className={`col-start-2 md:col-start-auto md:col-span-3 md:text-right font-extrabold text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}
+                          className={`col-start-2 col-span-2 md:col-start-auto md:col-span-3 md:text-right font-extrabold text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}
                         >
                           {escola.auditores ?? escola.alunosAtivos ?? 0}{" "}
                           <span className="text-[10px] text-slate-500 font-medium">
                             auditores
                           </span>
                         </div>
-                        <div className="col-start-2 md:col-start-auto md:col-span-2 md:text-right font-black text-xs text-[#10B981]">
+                        <div className="col-start-3 row-start-1 md:row-start-auto md:col-start-auto md:col-span-2 md:text-right font-black text-xs text-[#10B981] justify-self-end">
                           {escola.scoreTotal ?? escola.totalKwhSalvo ?? 0}{" "}
                           <span className="text-[9px] font-bold">pts</span>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
