@@ -84,6 +84,34 @@ const devicesBase = [
   ["Aspirador de Pó", "🧹", "Ferramentas", 1200, 0.4, 2],
 ];
 
+const normalizarNomeIconeAparelho = (valor) =>
+  String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const emojiSeguroAparelho = (nome, fallback = "\u26A1") => {
+  const nomeNormalizado = normalizarNomeIconeAparelho(nome);
+  if (nomeNormalizado.includes("ar-condicionado") || nomeNormalizado.includes("ar condicionado")) return "\u2744\uFE0F";
+  if (nomeNormalizado.includes("geladeira") || nomeNormalizado.includes("freezer")) return "\u{1F9CA}";
+  if (nomeNormalizado.includes("chuveiro")) return "\u{1F6BF}";
+  if (nomeNormalizado.includes("televisor") || nomeNormalizado.includes("tv")) return "\u{1F4FA}";
+  if (nomeNormalizado.includes("ventilador")) return "\u{1F300}";
+  if (nomeNormalizado.includes("maquina de lavar")) return "\u{1F9FA}";
+  if (nomeNormalizado.includes("micro-ondas") || nomeNormalizado.includes("microondas")) return "\u{1F37D}\uFE0F";
+  if (nomeNormalizado.includes("computador")) return "\u{1F5A5}\uFE0F";
+  if (nomeNormalizado.includes("notebook")) return "\u{1F4BB}";
+  if (nomeNormalizado.includes("ferro de passar")) return "\u{1F50C}";
+  if (nomeNormalizado.includes("lampada")) return "\u{1F4A1}";
+  if (nomeNormalizado.includes("forno eletrico") || nomeNormalizado.includes("air fryer")) return "\u{1F525}";
+  if (nomeNormalizado.includes("roteador")) return "\u{1F4F6}";
+  if (nomeNormalizado.includes("camera")) return "\u{1F4F9}";
+  if (nomeNormalizado.includes("bomba")) return "\u{1F4A7}";
+  if (nomeNormalizado.includes("liquidificador")) return "\u{1F964}";
+  if (nomeNormalizado.includes("aspirador")) return "\u{1F9F9}";
+  return fallback;
+};
+
 export const DEVICES_SEED = devicesBase.map(
   ([nome, emoji, categoria, potencia, usoHorasDia, diasPorSemana]) => {
     const consumoMensal = calcularConsumoMensal({
@@ -96,7 +124,8 @@ export const DEVICES_SEED = devicesBase.map(
     return {
       id: criarIdPadronizado(nome),
       nome,
-      emoji,
+      emoji: emojiSeguroAparelho(nome, emoji),
+      icone: emojiSeguroAparelho(nome, emoji),
       categoria,
       potencia,
       usoHorasDia,

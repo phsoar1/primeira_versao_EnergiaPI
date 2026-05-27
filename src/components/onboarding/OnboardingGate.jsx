@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle, ChevronRight, Home, Loader2, LogOut, MapPin } from "lucide-react";
+import { BookOpen, CheckCircle, Home, Loader2, LogOut, MapPin } from "lucide-react";
 import SchoolSearchPicker from "../schools/SchoolSearchPicker";
 
-const VIDEO_SRC = "/videos/energia-pi-institucional.mp4";
+const VIDEO_SRC = "/videos/demo.mp4";
 
 const apenasNumeros = (valor) => String(valor || "").replace(/\D/g, "");
 
@@ -20,11 +20,12 @@ function InstitutionalVideo() {
   const [videoErro, setVideoErro] = useState(false);
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+    <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
       {!videoErro && (
         <video
-          className="h-full w-full object-cover"
+          className="h-full w-full rounded-3xl object-cover"
           src={VIDEO_SRC}
+          controls
           autoPlay
           muted
           loop
@@ -34,13 +35,20 @@ function InstitutionalVideo() {
         />
       )}
       {videoErro && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0B1426]/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),rgba(11,20,38,0.92)_54%)]">
           <div className="text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#10B981]/25 bg-[#10B981]/10">
-              <CheckCircle className="text-[#10B981]" size={24} />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[#10B981]/25 bg-white/5 shadow-[0_18px_50px_rgba(16,185,129,0.18)]">
+              <img
+                src="/logo.png"
+                alt="Logo EnergiaPI"
+                className="h-11 w-11 object-contain"
+              />
             </div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
-              Energia PI
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-white">
+              EnergiaPI
+            </p>
+            <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Demonstração em breve
             </p>
           </div>
         </div>
@@ -153,7 +161,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
   };
 
   return (
-    <div className="flex-1 min-h-screen mesh-gradient-auth relative overflow-y-auto ios-scroll scroll-custom px-4 py-5 md:px-8 md:py-8">
+    <div className="flex-1 min-h-0 mesh-gradient-auth relative overflow-y-auto ios-scroll scroll-custom px-4 py-5 md:px-8 md:py-8">
       <button
         type="button"
         onClick={onLogout}
@@ -285,15 +293,6 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
           </p>
         </div>
       </form>
-
-      <button
-        type="button"
-        onClick={enviar}
-        disabled={!formularioValido || saving}
-        className="fixed bottom-5 right-5 z-20 flex items-center gap-2 rounded-2xl border border-[#10B981]/30 bg-[#10B981]/90 px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-[0_18px_40px_rgba(16,185,129,0.26)] backdrop-blur-xl transition-all duration-300 hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Continuar <ChevronRight size={16} />
-      </button>
     </div>
   );
 }

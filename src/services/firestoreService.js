@@ -37,10 +37,14 @@ const cache = {
 
 const colecao = (nome) => collection(db, nome);
 
-const dataDoc = (snapshot) => ({
-  id: snapshot.id,
-  ...snapshot.data(),
-});
+const dataDoc = (snapshot) => {
+  const data = snapshot.data();
+  return {
+    ...data,
+    id: data.id || snapshot.id,
+    docId: snapshot.id,
+  };
+};
 
 const normalizarTipoUsuario = (tipo) => {
   if (tipo === "morador") return "morador";
@@ -48,28 +52,109 @@ const normalizarTipoUsuario = (tipo) => {
   return "";
 };
 
+const escolaIdPareceSlug = (valor = "") =>
+  /^ceti_[a-z0-9_]+$/i.test(String(valor).trim());
+
+const ESCOLA_SEM_NOME = "Escola sem nome";
+
+const escolasSeedPorId = new Map(
+  SCHOOLS_SEED.map((school) => [school.id, school]),
+);
+
+const campoTextoValido = (valor = "") => {
+  const texto = String(valor || "").trim();
+  if (!texto) return "";
+  if (texto.toLowerCase() === ESCOLA_SEM_NOME.toLowerCase()) return "";
+  if (escolaIdPareceSlug(texto)) return "";
+  return texto;
+};
+
+const nomeAPartirSlugEscola = (valor = "") => {
+  const slug = String(valor || "").trim();
+  if (!escolaIdPareceSlug(slug)) return "";
+  return slug
+    .replace(/^ceti_/i, "")
+    .split("_")
+    .filter(Boolean)
+    .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+    .join(" ")
+    .replace(/^/, "CETI ");
+};
+
+const obterIdEscola = (school = {}) =>
+  school.escolaId ||
+  school.schoolId ||
+  school.id ||
+  school.docId ||
+  school.slug ||
+  "";
+
+const obterNomeEscola = (school = {}) => {
+  const camposPossiveis = [
+    school.escolaNome,
+    school.nomeEscola,
+    school.schoolName,
+    school.title,
+    school.school,
+    school.escola,
+    school.nome,
+    school.name,
+    school.razaoSocial,
+  ];
+
+  const nomeDireto = camposPossiveis.map(campoTextoValido).find(Boolean);
+  if (nomeDireto) return nomeDireto;
+
+  const idEscola = obterIdEscola(school);
+  const seed = escolasSeedPorId.get(idEscola);
+  if (seed?.nome) return seed.nome;
+
+  const nomeSlug = nomeAPartirSlugEscola(idEscola || camposPossiveis.find(Boolean));
+  return nomeSlug || ESCOLA_SEM_NOME;
+};
+
 const normalizarEscola = (school = {}) => {
   const GRE = school.GRE || school.gre || "";
-  const nome =
-    school.nome ||
-    school.name ||
-    school.escolaNome ||
-    school.escola ||
-    school.razaoSocial ||
-    school.id ||
-    "Escola sem nome";
+  const id = obterIdEscola(school);
+  const nome = obterNomeEscola(school);
+  const auditores = Number(
+    school.auditores ??
+      school.alunosAtivos ??
+      school.totalAuditores ??
+      school.studentsCount ??
+      school.usersCount ??
+      0,
+  );
+  const scoreTotal = Number(
+    school.scoreTotal ??
+      school.totalKwhSalvo ??
+      school.totalScore ??
+      school.score ??
+      school.pontuacao ??
+      school.pontos ??
+      0,
+  );
   return {
     ...school,
-    nome: String(nome).trim() || "Escola sem nome",
+    id,
+    nome,
+    escolaNome: campoTextoValido(school.escolaNome) || nome,
+    escola: campoTextoValido(school.escola) || campoTextoValido(school.school) || nome,
     GRE,
     gre: GRE,
     cidade: school.cidade || school.municipio || "",
     regiao: school.regiao || "",
-    auditores: Number(school.auditores || school.alunosAtivos || 0),
-    alunosAtivos: Number(school.auditores || school.alunosAtivos || 0),
-    scoreTotal: Number(school.scoreTotal || school.totalKwhSalvo || 0),
-    totalKwhSalvo: Number(school.scoreTotal || school.totalKwhSalvo || 0),
+    auditores,
+    alunosAtivos: auditores,
+    scoreTotal,
+    totalKwhSalvo: scoreTotal,
   };
+};
+
+const normalizarListaEscolas = (lista = [], fallback = RANKING_ESCOLAS_SEED) => {
+  const normalizadas = fallbackQuandoVazio(lista, fallback).map(normalizarEscola);
+  const temNomesReais = normalizadas.some((school) => school.nome !== ESCOLA_SEM_NOME);
+  return temNomesReais ? normalizadas : fallback.map(normalizarEscola);
 };
 
 const ordenarRankingEscolas = (lista = []) =>
@@ -115,12 +200,49 @@ const normalizarMissoes = (missions = []) =>
     };
   });
 
+const MOJIBAKE_EMOJI_REGEX = /[\u00C2\u00C3\u00E2\u00F0\uFFFD]/;
+
+const normalizarEmojiVisual = (valor, fallback = "\u26A1") => {
+  const emoji = String(valor || "").trim();
+  return !emoji || MOJIBAKE_EMOJI_REGEX.test(emoji) ? fallback : emoji;
+};
+
+const regrasIconesAparelhos = [
+  { termos: ["ar-condicionado", "ar condicionado", "climatizador"], emoji: "\u2744\uFE0F" },
+  { termos: ["geladeira", "freezer"], emoji: "\u{1F9CA}" },
+  { termos: ["chuveiro"], emoji: "\u{1F6BF}" },
+  { termos: ["televisor", "televisao", "tv"], emoji: "\u{1F4FA}" },
+  { termos: ["ventilador"], emoji: "\u{1F300}" },
+  { termos: ["maquina de lavar", "lavadora", "lavar roupas"], emoji: "\u{1F9FA}" },
+  { termos: ["micro ondas", "microondas", "forno micro"], emoji: "\u{1F37D}\uFE0F" },
+  { termos: ["computador", "desktop"], emoji: "\u{1F5A5}\uFE0F" },
+  { termos: ["notebook"], emoji: "\u{1F4BB}" },
+  { termos: ["ferro de passar"], emoji: "\u{1F50C}" },
+  { termos: ["lampada", "luminaria"], emoji: "\u{1F4A1}" },
+  { termos: ["forno eletrico", "air fryer"], emoji: "\u{1F525}" },
+  { termos: ["roteador", "wi fi", "wifi"], emoji: "\u{1F4F6}" },
+  { termos: ["camera"], emoji: "\u{1F4F9}" },
+  { termos: ["bomba d agua", "bomba dagua", "bomba de agua"], emoji: "\u{1F4A7}" },
+  { termos: ["liquidificador"], emoji: "\u{1F964}" },
+  { termos: ["aspirador"], emoji: "\u{1F9F9}" },
+];
+
 const normalizarEmojiAparelho = (device = {}) => {
   const nome = normalizarBusca(device.nome || "");
-  if (nome.includes("ar-condicionado") || nome.includes("ar condicionado")) {
-    return "\u2744\uFE0F";
-  }
-  return device.emoji || device.icone || "\u26A1";
+  const regra = regrasIconesAparelhos.find(({ termos }) =>
+    termos.some((termo) => nome.includes(termo)),
+  );
+  if (regra) return regra.emoji;
+  return normalizarEmojiVisual(device.emoji || device.icone);
+};
+
+const normalizarAparelhoCatalogo = (device = {}) => {
+  const emoji = normalizarEmojiAparelho(device);
+  return {
+    ...device,
+    emoji,
+    icone: emoji,
+  };
 };
 
 const normalizarPerfilUsuario = (perfil = {}, uidFallback = "") => {
@@ -468,9 +590,9 @@ export const searchSchools = async ({ termo = "", max = 8 } = {}) => {
     const snapshot = await withTimeout(
       getDocs(query(colecao("schools"), ...constraints)),
     );
-    let lista = fallbackQuandoVazio(
-      snapshot.docs.map((item) => normalizarEscola(dataDoc(item))),
-      SCHOOLS_SEED.map(normalizarEscola),
+    let lista = normalizarListaEscolas(
+      snapshot.docs.map(dataDoc),
+      SCHOOLS_SEED,
     );
 
     if (termoNormalizado) {
@@ -485,7 +607,7 @@ export const searchSchools = async ({ termo = "", max = 8 } = {}) => {
     return cacheSet(cache.schools, chave, lista.slice(0, max));
   } catch (error) {
     console.warn("[Firestore schools search fallback]", error?.message);
-    let lista = SCHOOLS_SEED.map(normalizarEscola);
+    let lista = normalizarListaEscolas(SCHOOLS_SEED, SCHOOLS_SEED);
     if (termoNormalizado) {
       lista = ordenarPorScoreBusca(lista, termoNormalizado, [
         "nome",
@@ -523,7 +645,9 @@ export const searchDevices = async ({
     const snapshot = await withTimeout(
       getDocs(query(colecao("devices"), ...constraints)),
     );
-    let lista = fallbackQuandoVazio(snapshot.docs.map(dataDoc), DEVICES_SEED);
+    let lista = fallbackQuandoVazio(snapshot.docs.map(dataDoc), DEVICES_SEED).map(
+      normalizarAparelhoCatalogo,
+    );
 
     if (categoria) lista = lista.filter((device) => device.categoria === categoria);
     if (termoNormalizado) {
@@ -536,7 +660,7 @@ export const searchDevices = async ({
     return cacheSet(cache.devices, chave, lista.slice(0, max));
   } catch (error) {
     console.warn("[Firestore devices search fallback]", error?.message);
-    let lista = DEVICES_SEED;
+    let lista = DEVICES_SEED.map(normalizarAparelhoCatalogo);
     if (categoria) lista = lista.filter((device) => device.categoria === categoria);
     if (termoNormalizado) {
       lista = ordenarPorScoreBusca(lista, termoNormalizado, [
@@ -557,7 +681,11 @@ export const subscribeUserDevices = (uid, callback) => {
   return onSnapshot(
     query(collection(db, "users", uid, "devices"), orderBy("createdAt", "desc")),
     (snapshot) => {
-      callback(snapshot.docs.map((item) => normalizarUsoAparelho(dataDoc(item))));
+      callback(
+        snapshot.docs.map((item) =>
+          normalizarAparelhoCatalogo(normalizarUsoAparelho(dataDoc(item))),
+        ),
+      );
     },
     (error) => {
       console.warn("[Firestore user devices fallback]", error?.message);
@@ -598,7 +726,9 @@ export const updateUserDevice = async (uid, id, patch) => {
   const ref = doc(db, "users", uid, "devices", id);
   const snap = await getDoc(ref);
   const atual = snap.exists() ? snap.data() : {};
-  const payload = normalizarUsoAparelho({ ...atual, ...patch });
+  const payload = normalizarAparelhoCatalogo(
+    normalizarUsoAparelho({ ...atual, ...patch }),
+  );
 
   await updateDoc(ref, {
     ...payload,
@@ -666,10 +796,7 @@ const listarRankingEscolas = async () => {
     getDocs(colecao("schools")),
   );
   return ordenarRankingEscolas(
-    fallbackQuandoVazio(
-      snapshot.docs.map((item) => normalizarEscola(dataDoc(item))),
-      RANKING_ESCOLAS_SEED.map(normalizarEscola),
-    ),
+    normalizarListaEscolas(snapshot.docs.map(dataDoc), RANKING_ESCOLAS_SEED),
   );
 };
 
@@ -690,7 +817,9 @@ export const subscribeRankings = (callback) => {
   const cached =
     cacheGet(cache.rankings, "last") || lerRankingsCache();
   const state = {
-    escolas: cached?.escolas ? ordenarRankingEscolas(cached.escolas.map(normalizarEscola)) : null,
+    escolas: cached?.escolas
+      ? ordenarRankingEscolas(normalizarListaEscolas(cached.escolas, RANKING_ESCOLAS_SEED))
+      : null,
     comunidade: cached?.comunidade
       ? ordenarRankingComunidade(cached.comunidade.map(normalizarRankingComunidade))
       : null,
@@ -708,7 +837,7 @@ export const subscribeRankings = (callback) => {
   const emitir = (extra = {}) => {
     if (!ativo) return;
     const payload = {
-      escolas: state.escolas || RANKING_ESCOLAS_SEED.map(normalizarEscola),
+      escolas: state.escolas || normalizarListaEscolas(RANKING_ESCOLAS_SEED, RANKING_ESCOLAS_SEED),
       comunidade: state.comunidade || [],
       lastUpdated: new Date().toISOString(),
       fromCache: false,
@@ -723,17 +852,15 @@ export const subscribeRankings = (callback) => {
     colecao("schools"),
     (snapshot) => {
       state.escolas = ordenarRankingEscolas(
-        fallbackQuandoVazio(
-          snapshot.docs.map((item) => normalizarEscola(dataDoc(item))),
-          RANKING_ESCOLAS_SEED.map(normalizarEscola),
-        ),
+        normalizarListaEscolas(snapshot.docs.map(dataDoc), RANKING_ESCOLAS_SEED),
       );
       emitir();
     },
     (error) => {
       console.warn("[Firestore schools ranking fallback]", error?.message);
       state.escolas =
-        state.escolas || cached?.escolas || RANKING_ESCOLAS_SEED.map(normalizarEscola);
+        state.escolas ||
+        normalizarListaEscolas(cached?.escolas || [], RANKING_ESCOLAS_SEED);
       emitir({
         error: error?.message || "schools-ranking-unavailable",
         fromCache: Boolean(cached),
@@ -787,20 +914,38 @@ export const subscribeRankings = (callback) => {
 };
 
 export const normalizeSchoolForImport = (school) => {
-  const nome = String(school.nome || school.name || "").trim();
+  const nome = obterNomeEscola(school);
   const GRE = school.GRE || school.gre || "";
+  const cidade = school.cidade || school.municipio || "";
+  const regiao = school.regiao || "";
   return {
-    id: school.id || criarKeywords(nome)[0]?.replace(/\s+/g, "_"),
+    id: obterIdEscola(school) || criarKeywords(nome)[0]?.replace(/\s+/g, "_"),
     nome,
+    escolaNome: campoTextoValido(school.escolaNome) || nome,
     GRE,
-    cidade: school.cidade || "",
-    regiao: school.regiao || "",
+    cidade,
+    regiao,
     tipo: school.tipo || "CETI",
-    auditores: Number(school.auditores || 0),
-    scoreTotal: Number(school.scoreTotal || 0),
+    auditores: Number(
+      school.auditores ??
+        school.alunosAtivos ??
+        school.totalAuditores ??
+        school.studentsCount ??
+        school.usersCount ??
+        0,
+    ),
+    scoreTotal: Number(
+      school.scoreTotal ??
+        school.totalKwhSalvo ??
+        school.totalScore ??
+        school.score ??
+        school.pontuacao ??
+        school.pontos ??
+        0,
+    ),
     keywords:
       school.keywords ||
-      criarKeywords(nome, nome.replace(/^CETI\s+/i, ""), GRE, school.cidade, school.regiao),
+      criarKeywords(nome, nome.replace(/^CETI\s+/i, ""), GRE, cidade, regiao),
   };
 };
 

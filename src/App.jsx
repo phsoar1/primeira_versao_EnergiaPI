@@ -111,12 +111,20 @@ const GoogleIcon = () => (
 
 const TWEMOJI_BASE_URL =
   "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/72x72";
+const MOJIBAKE_EMOJI_REGEX = /[\u00C2\u00C3\u00E2\u00F0\uFFFD]/;
+
+const normalizarEmojiVisual = (valor) => {
+  const emoji = String(valor || "").trim();
+  return !emoji || MOJIBAKE_EMOJI_REGEX.test(emoji) ? "\u26A1" : emoji;
+};
 
 const Emoji = ({ children, className = "" }) => {
-  const emoji = String(children || "");
+  const emoji = normalizarEmojiVisual(children);
   const codePoint = emoji ? twemoji.convert.toCodePoint(emoji) : "";
+  const [codePointFalhou, setCodePointFalhou] = useState("");
+  const imagemFalhou = codePointFalhou === codePoint;
 
-  if (!codePoint) {
+  if (!codePoint || imagemFalhou) {
     return (
       <span
         className={`inline-flex items-center justify-center leading-none ${className}`.trim()}
@@ -132,6 +140,7 @@ const Emoji = ({ children, className = "" }) => {
       alt={emoji}
       draggable="false"
       loading="lazy"
+      onError={() => setCodePointFalhou(codePoint)}
       className={`twemoji ${className}`.trim()}
     />
   );
@@ -165,6 +174,121 @@ const EMOJIS = {
   ouro: "🥇",
   prata: "🥈",
   bronze: "🥉",
+};
+
+Object.assign(EMOJIS, {
+  frio: "\u2744\uFE0F",
+  gelo: "\u{1F9CA}",
+  chuveiro: "\u{1F6BF}",
+  tv: "\u{1F4FA}",
+  ventilador: "\u{1F300}",
+  lavanderia: "\u{1F9FA}",
+  cozinha: "\u{1F372}",
+  prato: "\u{1F37D}\uFE0F",
+  computador: "\u{1F5A5}\uFE0F",
+  notebook: "\u{1F4BB}",
+  tomada: "\u{1F50C}",
+  lampada: "\u{1F4A1}",
+  fogo: "\u{1F525}",
+  wifi: "\u{1F4F6}",
+  camera: "\u{1F4F9}",
+  agua: "\u{1F4A7}",
+  copo: "\u{1F964}",
+  limpeza: "\u{1F9F9}",
+  energia: "\u26A1",
+  broto: "\u{1F331}",
+  planeta: "\u{1F30D}",
+  dinheiro: "\u{1F4B0}",
+  arvore: "\u{1F333}",
+  ouro: "\u{1F947}",
+  prata: "\u{1F948}",
+  bronze: "\u{1F949}",
+});
+
+const normalizarTextoIcone = (valor) =>
+  String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const REGRAS_ICONES_APARELHOS = [
+  { termos: ["ar-condicionado", "ar condicionado", "climatizador"], emoji: EMOJIS.frio },
+  { termos: ["geladeira", "freezer"], emoji: EMOJIS.gelo },
+  { termos: ["chuveiro"], emoji: EMOJIS.chuveiro },
+  { termos: ["televisor", "televisao", "tv"], emoji: EMOJIS.tv },
+  { termos: ["ventilador"], emoji: EMOJIS.ventilador },
+  { termos: ["maquina de lavar", "lavadora", "lavar roupas"], emoji: EMOJIS.lavanderia },
+  { termos: ["micro-ondas", "microondas", "forno micro"], emoji: EMOJIS.prato },
+  { termos: ["computador", "desktop"], emoji: EMOJIS.computador },
+  { termos: ["notebook"], emoji: EMOJIS.notebook },
+  { termos: ["ferro de passar"], emoji: EMOJIS.tomada },
+  { termos: ["lampada", "luminaria"], emoji: EMOJIS.lampada },
+  { termos: ["forno eletrico"], emoji: EMOJIS.fogo },
+  { termos: ["air fryer"], emoji: EMOJIS.fogo },
+  { termos: ["roteador", "wi-fi", "wifi"], emoji: EMOJIS.wifi },
+  { termos: ["camera"], emoji: EMOJIS.camera },
+  { termos: ["bomba d'agua", "bomba dagua", "bomba de agua"], emoji: EMOJIS.agua },
+  { termos: ["liquidificador"], emoji: EMOJIS.copo },
+  { termos: ["aspirador"], emoji: EMOJIS.limpeza },
+];
+
+const iconeAparelhoSeguro = (aparelho = {}) => {
+  const nome = normalizarTextoIcone(aparelho.nome || aparelho.name || "");
+  const regra = REGRAS_ICONES_APARELHOS.find(({ termos }) =>
+    termos.some((termo) => nome.includes(termo)),
+  );
+  if (regra) return regra.emoji;
+  return normalizarEmojiVisual(aparelho.emoji || aparelho.icone || EMOJIS.energia);
+};
+
+const escolaIdPareceSlug = (valor = "") =>
+  /^ceti_[a-z0-9_]+$/i.test(String(valor).trim());
+
+const nomeAPartirSlugEscola = (valor = "") => {
+  const slug = String(valor || "").trim();
+  if (!escolaIdPareceSlug(slug)) return "";
+  return slug
+    .replace(/^ceti_/i, "")
+    .split("_")
+    .filter(Boolean)
+    .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+    .join(" ")
+    .replace(/^/, "CETI ");
+};
+
+const campoNomeEscolaValido = (valor = "") => {
+  const texto = String(valor || "").trim();
+  if (!texto) return "";
+  if (texto.toLowerCase() === "escola sem nome") return "";
+  if (escolaIdPareceSlug(texto)) return "";
+  return texto;
+};
+
+const nomePublicoEscola = (escola = {}) => {
+  const camposPossiveis = [
+    escola.escolaNome,
+    escola.nomeEscola,
+    escola.schoolName,
+    escola.title,
+    escola.school,
+    escola.escola,
+    escola.nome,
+    escola.name,
+    escola.razaoSocial,
+  ];
+  const nome = camposPossiveis.map(campoNomeEscolaValido).find(Boolean);
+  if (nome) return nome;
+
+  return (
+    nomeAPartirSlugEscola(
+      escola.escolaId ||
+        escola.schoolId ||
+        escola.id ||
+        escola.docId ||
+        escola.slug ||
+        camposPossiveis.find(Boolean),
+    ) || "Escola sem nome"
+  );
 };
 const EMAIL_PERMITIDO_REGEX = new RegExp(
   `^[A-Z0-9._%+-]+@(${EMAIL_DOMINIOS_PERMITIDOS.map((dominio) => dominio.replace(".", "\\.")).join("|")})$`,
@@ -424,8 +548,8 @@ export default function App() {
           Number(b.auditores || b.alunosAtivos || 0) -
           Number(a.auditores || a.alunosAtivos || 0);
         if (auditoresDelta) return auditoresDelta;
-        const nomeA = a.nome || a.name || a.escolaNome || a.escola || "";
-        const nomeB = b.nome || b.name || b.escolaNome || b.escola || "";
+        const nomeA = nomePublicoEscola(a);
+        const nomeB = nomePublicoEscola(b);
         return String(nomeA).localeCompare(String(nomeB), "pt-BR");
       }),
     [rankingEscolas],
@@ -1346,6 +1470,8 @@ export default function App() {
       await addDevice({
         ...template,
         deviceId: template.id,
+        emoji: iconeAparelhoSeguro(template),
+        icone: iconeAparelhoSeguro(template),
         usoHorasDia: template.usoHorasDia ?? template.horasDia ?? 1,
         diasPorSemana: template.diasPorSemana || 7,
         quantidade: 1,
@@ -1365,8 +1491,8 @@ export default function App() {
     try {
       await addDevice({
         ...novoAparelho,
-        emoji: EMOJIS.energia,
-        icone: EMOJIS.energia,
+        emoji: iconeAparelhoSeguro(novoAparelho),
+        icone: iconeAparelhoSeguro(novoAparelho),
       });
       setModalNovoAberto(false);
       fecharModalTemplates();
@@ -1492,7 +1618,14 @@ export default function App() {
     const sliderRef = useRef(null);
     const frameRef = useRef(null);
     const nextValueRef = useRef(value);
-    const percentage = ((value - min) / (max - min)) * 100;
+    const trackInset = 12;
+    const range = Math.max(Number(max) - Number(min), Number(step) || 1);
+    const parsedValue = Number(value);
+    const valueNumber = Number.isFinite(parsedValue) ? parsedValue : Number(min);
+    const percentage = Math.min(
+      Math.max(((valueNumber - Number(min)) / range) * 100, 0),
+      100,
+    );
 
     useEffect(
       () => () => {
@@ -1514,9 +1647,14 @@ export default function App() {
     const ajustarPorPonteiro = (event) => {
       const rect = sliderRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const raw = ((event.clientX - rect.left) / rect.width) * (max - min) + min;
-      const stepped = Math.round(raw / step) * step;
-      const nextValue = Math.min(Math.max(stepped, min), max);
+      const usableWidth = Math.max(rect.width - trackInset * 2, 1);
+      const ratio = Math.min(
+        Math.max((event.clientX - rect.left - trackInset) / usableWidth, 0),
+        1,
+      );
+      const raw = ratio * (max - min) + min;
+      const stepped = Math.round((raw - min) / step) * step + min;
+      const nextValue = Math.min(Math.max(Number(stepped.toFixed(3)), min), max);
       emitirMudanca(nextValue);
     };
 
@@ -1530,7 +1668,7 @@ export default function App() {
         ref={sliderRef}
         data-no-swipe="true"
         data-slider-control="true"
-        className="relative w-full h-11 rounded-full flex items-center group touch-none select-none slider-ios"
+        className="relative h-10 w-full overflow-visible rounded-full select-none touch-none group slider-ios"
         onTouchStart={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
         onPointerDown={(event) => {
@@ -1552,13 +1690,19 @@ export default function App() {
           event.currentTarget.releasePointerCapture?.(event.pointerId);
         }}
       >
-        <div
-          className={`absolute left-0 right-0 top-1/2 h-7 -translate-y-1/2 rounded-full ${isDark ? "bg-slate-900/80" : "bg-slate-200/90"} shadow-inner border ${isDark ? "border-white/5" : "border-white/70"}`}
-        />
-        <div
-          className={`absolute left-1 top-1/2 h-5 -translate-y-1/2 ${colorClass} rounded-full transition-[width] duration-75 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] slider-fill`}
-          style={{ width: `calc(${percentage}% - 0.5rem)` }}
-        />
+        <div className="absolute inset-x-3 top-1/2 h-7 -translate-y-1/2">
+          <div
+            className={`absolute inset-x-0 top-1/2 h-3 -translate-y-1/2 rounded-full ${isDark ? "bg-slate-900/80" : "bg-slate-200/90"} shadow-inner border ${isDark ? "border-white/5" : "border-white/70"}`}
+          />
+          <div
+            className={`absolute left-0 top-1/2 h-3 -translate-y-1/2 ${colorClass} rounded-full transition-[width] duration-75 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] slider-fill`}
+            style={{ width: `${percentage}%` }}
+          />
+          <div
+            className="absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_6px_16px_rgba(0,0,0,0.24)] ring-2 ring-white/70 transition-[left,transform] duration-75 ease-out pointer-events-none group-active:scale-95 slider-thumb"
+            style={{ left: `${percentage}%` }}
+          />
+        </div>
         <input
           type="range"
           min={min}
@@ -1568,10 +1712,6 @@ export default function App() {
           onChange={onChange}
           data-no-swipe="true"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
-        />
-        <div
-          className="absolute w-9 h-9 bg-white rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.28)] ring-1 ring-black/5 transition-[left,transform] duration-75 ease-out pointer-events-none transform -translate-x-1/2 group-active:scale-95 slider-thumb"
-          style={{ left: `${percentage}%` }}
         />
       </div>
     );
@@ -1684,8 +1824,42 @@ export default function App() {
           overscroll-behavior-y: contain;
         }
         input[type="range"] {
+          appearance: none;
+          -webkit-appearance: none;
+          background: transparent;
+          height: 24px;
           touch-action: none;
           -webkit-tap-highlight-color: transparent;
+          accent-color: #10B981;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          height: 8px;
+          border-radius: 9999px;
+          background: linear-gradient(90deg, #10B981, #06B6D4);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          margin-top: -6px;
+          border-radius: 9999px;
+          background: #fff;
+          border: 1px solid rgba(15, 23, 42, 0.12);
+          box-shadow: 0 5px 14px rgba(0, 0, 0, 0.24);
+        }
+        input[type="range"]::-moz-range-track {
+          height: 8px;
+          border-radius: 9999px;
+          background: linear-gradient(90deg, #10B981, #06B6D4);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border: 0;
+          border-radius: 9999px;
+          background: #fff;
+          box-shadow: 0 5px 14px rgba(0, 0, 0, 0.24);
         }
         
         @keyframes fadeInScale {
@@ -2560,7 +2734,7 @@ export default function App() {
                                     <span className="text-[#10B981] font-extrabold w-4">
                                       {i + 1}.
                                     </span>
-                                    <Emoji>{elet.icone}</Emoji>
+                                    <Emoji>{iconeAparelhoSeguro(elet)}</Emoji>
                                     <span>{elet.nome}</span>
                                   </span>
                                   <span>
@@ -2687,7 +2861,7 @@ export default function App() {
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
                               <span className="text-3xl bg-white/5 p-2 rounded-xl border border-white/5">
-                                <Emoji>{elet.icone}</Emoji>
+                                <Emoji>{iconeAparelhoSeguro(elet)}</Emoji>
                               </span>
                               <input
                                 type="text"
@@ -3323,12 +3497,7 @@ export default function App() {
                         </p>
                       </div>
                     ) : rankingEscolasOrdenado.map((escola, index) => {
-                      const nomeEscola =
-                        escola.nome ||
-                        escola.name ||
-                        escola.escolaNome ||
-                        escola.escola ||
-                        "Escola sem nome";
+                      const nomeEscola = nomePublicoEscola(escola);
                       const detalheEscola = [
                         escola.GRE || escola.gre,
                         escola.regiao || escola.cidade,
@@ -3482,7 +3651,7 @@ export default function App() {
                     className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 text-left ${isDark ? "bg-slate-900/30 border-slate-800 hover:border-[#10B981] hover:bg-slate-800/50" : "bg-slate-50 border-slate-200 hover:border-[#10B981] hover:shadow-md"}`}
                   >
                     <span className="text-3xl bg-white/5 p-2 rounded-xl border border-white/5">
-                      <Emoji>{tpl.emoji || tpl.icone}</Emoji>
+                      <Emoji>{iconeAparelhoSeguro(tpl)}</Emoji>
                     </span>
                     <div>
                       <p className={`font-bold text-sm ${tm.text}`}>
