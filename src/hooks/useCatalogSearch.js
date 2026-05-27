@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { searchDevices, searchSchools } from "../services/firestoreService";
+import { searchDevices } from "../services/deviceService";
+import { searchSchools } from "../services/schoolService";
 import { useDebouncedValue } from "./useDebouncedValue";
 
 const useAsyncSearch = (params, searcher) => {

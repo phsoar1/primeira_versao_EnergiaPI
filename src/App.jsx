@@ -1,14 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef } from "react";
-import {
-  createUserWithEmailAndPassword,
-  getRedirectResult,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
-  signOut,
-  updateProfile,
-} from "firebase/auth";
+import { useCallback, useState, useEffect, useRef } from "react";
 import {
   LogOut,
   Plus,
@@ -31,343 +21,77 @@ import {
   MapPin,
   ZapOff,
   Search,
-  Trophy,
-  Eye,
 } from "lucide-react";
-import twemoji from "@twemoji/api";
 import {
-  auth,
-  authReady,
   firebaseConfigStatus,
   isFirebaseConfigured,
-  provider,
-} from "./firebase";
+} from "./services/firebase";
+import GoogleIcon from "./components/auth/GoogleIcon";
+import DeviceIcon from "./components/devices/DeviceIcon";
+import MissionsView from "./components/missions/MissionsView";
 import OnboardingGate from "./components/onboarding/OnboardingGate";
+import CommunityRanking from "./components/rankings/CommunityRanking";
+import SchoolRanking from "./components/rankings/SchoolRanking";
 import SchoolSearchPicker from "./components/schools/SchoolSearchPicker";
+import AnimatedSlider from "./components/ui/AnimatedSlider";
+import BrandLogo from "./components/ui/BrandLogo";
+import Emoji from "./components/ui/Emoji";
+import QuickEditPopover from "./components/ui/QuickEditPopover";
+import Toast from "./components/ui/Toast";
 import { CATEGORIAS_APARELHOS } from "./data/seedData";
 import { useDeviceCatalogSearch } from "./hooks/useCatalogSearch";
+import { useCommunityRanking } from "./hooks/useCommunityRanking";
 import { useMissions } from "./hooks/useMissions";
-import { useRankings } from "./hooks/useRankings";
-import { useUserDevices } from "./hooks/useUserDevices";
+import { useSwipeNavigation } from "./hooks/useSwipeNavigation";
+import { useDevices } from "./hooks/useDevices";
+import {
+  createAccountWithEmail,
+  detectarAuthProvider,
+  getCurrentFirebaseUser,
+  lerPerfisSalvos,
+  loginWithEmail,
+  loginWithGooglePopup,
+  loginWithGoogleRedirect,
+  logoutFirebase,
+  registrarErroAuth,
+  resolveGoogleRedirect,
+  salvarPerfilUsuario,
+  subscribeAuthState,
+  traduzirErroFirebase,
+} from "./services/authService";
 import {
   addUserScore,
   completeUserOnboarding,
   ensureUserDocument,
   saveUserProfile,
   subscribeUserDocument,
-} from "./services/firestoreService";
+} from "./services/userService";
 import {
   calcularCarbonoMensal,
+  calcularConsumoAparelho,
   calcularConsumoMensal,
   calcularCustoMensal,
+  gerarInsightsEnergeticos,
   TARIFA_KWH_PI,
-} from "./utils/energyCalculations";
+} from "./utils/calculations";
+import {
+  apenasNumeros,
+  EMOJIS,
+  ESCOLA_NAO_APLICA,
+  formatarCep,
+  iconeAparelhoSeguro,
+  montarEndereco,
+  normalizarEmail,
+  normalizarTipoUsuario,
+  NOME_AUDITOR_FALLBACK,
+  obterGre,
+} from "./utils/formatters";
+import { emailEhPermitido, verificarSenhasIguais } from "./utils/validators";
 
 // ==========================================
 // CONFIGURAÇÃO DA LOGO DO PROJETO ENERGIAPI
 // ==========================================
-const LOGO_URL = "/logo.png";
 const ABAS_APP = ["dashboard", "aparelhos", "missões", "comunidade", "ranking"];
-const SWIPE_MIN_DISTANCE = 56;
-
-const LogoEnergiaPI = ({ size = 48, className = "" }) => {
-  return (
-    <img
-      src={LOGO_URL}
-      alt="Logo EnergiaPI"
-      width={size}
-      height={size}
-      style={{ width: size, height: size }}
-      className={className}
-      onError={(e) => {
-        e.target.onerror = null;
-        e.target.src =
-          "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=150&q=80";
-      }}
-    />
-  );
-};
-
-const GoogleIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-    />
-  </svg>
-);
-
-const TWEMOJI_BASE_URL =
-  "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/72x72";
-const MOJIBAKE_EMOJI_REGEX = /[\u00C2\u00C3\u00E2\u00F0\uFFFD]/;
-
-const normalizarEmojiVisual = (valor) => {
-  const emoji = String(valor || "").trim();
-  return !emoji || MOJIBAKE_EMOJI_REGEX.test(emoji) ? "\u26A1" : emoji;
-};
-
-const Emoji = ({ children, className = "" }) => {
-  const emoji = normalizarEmojiVisual(children);
-  const codePoint = emoji ? twemoji.convert.toCodePoint(emoji) : "";
-  const [codePointFalhou, setCodePointFalhou] = useState("");
-  const imagemFalhou = codePointFalhou === codePoint;
-
-  if (!codePoint || imagemFalhou) {
-    return (
-      <span
-        className={`inline-flex items-center justify-center leading-none ${className}`.trim()}
-      >
-        {emoji}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={`${TWEMOJI_BASE_URL}/${codePoint}.png`}
-      alt={emoji}
-      draggable="false"
-      loading="lazy"
-      onError={() => setCodePointFalhou(codePoint)}
-      className={`twemoji ${className}`.trim()}
-    />
-  );
-};
-
-const PERFIS_STORAGE_KEY = "energiapi:firebase-user-profiles";
-const ESCOLA_NAO_APLICA = "Nao se aplica (Perfil Morador)";
-const POPUP_TIMEOUT_MS = 45000;
-const EMAIL_DOMINIOS_PERMITIDOS = [
-  "gmail.com",
-  "hotmail.com",
-  "outlook.com",
-  "yahoo.com",
-  "icloud.com",
-];
-const EMOJIS = {
-  frio: "❄️",
-  chuveiro: "🚿",
-  tv: "📺",
-  ventilador: "🌀",
-  lavanderia: "🧺",
-  cozinha: "🍲",
-  computador: "🖥️",
-  tomada: "🔌",
-  lampada: "💡",
-  energia: "⚡",
-  broto: "🌱",
-  planeta: "🌍",
-  dinheiro: "💰",
-  arvore: "🌳",
-  ouro: "🥇",
-  prata: "🥈",
-  bronze: "🥉",
-};
-
-Object.assign(EMOJIS, {
-  frio: "\u2744\uFE0F",
-  gelo: "\u{1F9CA}",
-  chuveiro: "\u{1F6BF}",
-  tv: "\u{1F4FA}",
-  ventilador: "\u{1F300}",
-  lavanderia: "\u{1F9FA}",
-  cozinha: "\u{1F372}",
-  prato: "\u{1F37D}\uFE0F",
-  computador: "\u{1F5A5}\uFE0F",
-  notebook: "\u{1F4BB}",
-  tomada: "\u{1F50C}",
-  lampada: "\u{1F4A1}",
-  fogo: "\u{1F525}",
-  wifi: "\u{1F4F6}",
-  camera: "\u{1F4F9}",
-  agua: "\u{1F4A7}",
-  copo: "\u{1F964}",
-  limpeza: "\u{1F9F9}",
-  energia: "\u26A1",
-  broto: "\u{1F331}",
-  planeta: "\u{1F30D}",
-  dinheiro: "\u{1F4B0}",
-  arvore: "\u{1F333}",
-  ouro: "\u{1F947}",
-  prata: "\u{1F948}",
-  bronze: "\u{1F949}",
-});
-
-const normalizarTextoIcone = (valor) =>
-  String(valor || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const REGRAS_ICONES_APARELHOS = [
-  { termos: ["ar-condicionado", "ar condicionado", "climatizador"], emoji: EMOJIS.frio },
-  { termos: ["geladeira", "freezer"], emoji: EMOJIS.gelo },
-  { termos: ["chuveiro"], emoji: EMOJIS.chuveiro },
-  { termos: ["televisor", "televisao", "tv"], emoji: EMOJIS.tv },
-  { termos: ["ventilador"], emoji: EMOJIS.ventilador },
-  { termos: ["maquina de lavar", "lavadora", "lavar roupas"], emoji: EMOJIS.lavanderia },
-  { termos: ["micro-ondas", "microondas", "forno micro"], emoji: EMOJIS.prato },
-  { termos: ["computador", "desktop"], emoji: EMOJIS.computador },
-  { termos: ["notebook"], emoji: EMOJIS.notebook },
-  { termos: ["ferro de passar"], emoji: EMOJIS.tomada },
-  { termos: ["lampada", "luminaria"], emoji: EMOJIS.lampada },
-  { termos: ["forno eletrico"], emoji: EMOJIS.fogo },
-  { termos: ["air fryer"], emoji: EMOJIS.fogo },
-  { termos: ["roteador", "wi-fi", "wifi"], emoji: EMOJIS.wifi },
-  { termos: ["camera"], emoji: EMOJIS.camera },
-  { termos: ["bomba d'agua", "bomba dagua", "bomba de agua"], emoji: EMOJIS.agua },
-  { termos: ["liquidificador"], emoji: EMOJIS.copo },
-  { termos: ["aspirador"], emoji: EMOJIS.limpeza },
-];
-
-const iconeAparelhoSeguro = (aparelho = {}) => {
-  const nome = normalizarTextoIcone(aparelho.nome || aparelho.name || "");
-  const regra = REGRAS_ICONES_APARELHOS.find(({ termos }) =>
-    termos.some((termo) => nome.includes(termo)),
-  );
-  if (regra) return regra.emoji;
-  return normalizarEmojiVisual(aparelho.emoji || aparelho.icone || EMOJIS.energia);
-};
-
-const escolaIdPareceSlug = (valor = "") =>
-  /^ceti_[a-z0-9_]+$/i.test(String(valor).trim());
-
-const nomeAPartirSlugEscola = (valor = "") => {
-  const slug = String(valor || "").trim();
-  if (!escolaIdPareceSlug(slug)) return "";
-  return slug
-    .replace(/^ceti_/i, "")
-    .split("_")
-    .filter(Boolean)
-    .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
-    .join(" ")
-    .replace(/^/, "CETI ");
-};
-
-const campoNomeEscolaValido = (valor = "") => {
-  const texto = String(valor || "").trim();
-  if (!texto) return "";
-  if (texto.toLowerCase() === "escola sem nome") return "";
-  if (escolaIdPareceSlug(texto)) return "";
-  return texto;
-};
-
-const nomePublicoEscola = (escola = {}) => {
-  const camposPossiveis = [
-    escola.escolaNome,
-    escola.nomeEscola,
-    escola.schoolName,
-    escola.title,
-    escola.school,
-    escola.escola,
-    escola.nome,
-    escola.name,
-    escola.razaoSocial,
-  ];
-  const nome = camposPossiveis.map(campoNomeEscolaValido).find(Boolean);
-  if (nome) return nome;
-
-  return (
-    nomeAPartirSlugEscola(
-      escola.escolaId ||
-        escola.schoolId ||
-        escola.id ||
-        escola.docId ||
-        escola.slug ||
-        camposPossiveis.find(Boolean),
-    ) || "Escola sem nome"
-  );
-};
-const EMAIL_PERMITIDO_REGEX = new RegExp(
-  `^[A-Z0-9._%+-]+@(${EMAIL_DOMINIOS_PERMITIDOS.map((dominio) => dominio.replace(".", "\\.")).join("|")})$`,
-  "i",
-);
-
-const montarEndereco = ({ bairro, numero, estadoCidade, cep }) =>
-  `${bairro}, No ${numero}, ${estadoCidade} - CEP: ${formatarCep(cep)}`;
-
-const apenasNumeros = (valor) => valor.replace(/\D/g, "");
-const formatarCep = (valor) => {
-  const digitos = apenasNumeros(valor).slice(0, 8);
-  return digitos.length > 5
-    ? `${digitos.slice(0, 5)}-${digitos.slice(5)}`
-    : digitos;
-};
-const normalizarEmail = (valor) => valor.trim().toLowerCase();
-const emailEhPermitido = (valor) =>
-  EMAIL_PERMITIDO_REGEX.test(normalizarEmail(valor));
-const criarErroFluxo = (code, message) =>
-  Object.assign(new Error(message), { code });
-const aguardarPopup = (promise) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(
-          criarErroFluxo(
-            "auth/popup-timeout",
-            "A janela do Google demorou para responder.",
-          ),
-        );
-      }, POPUP_TIMEOUT_MS);
-    }),
-  ]);
-
-const lerPerfisSalvos = () => {
-  try {
-    return JSON.parse(localStorage.getItem(PERFIS_STORAGE_KEY)) || {};
-  } catch {
-    return {};
-  }
-};
-
-const salvarPerfilUsuario = (uid, perfilUsuario) => {
-  const perfis = lerPerfisSalvos();
-  localStorage.setItem(
-    PERFIS_STORAGE_KEY,
-    JSON.stringify({
-      ...perfis,
-      [uid]: perfilUsuario,
-    }),
-  );
-};
-
-const detectarAuthProvider = (firebaseUser, perfil = {}) => {
-  if (perfil.authProvider === "google" || perfil.provider === "google") {
-    return "google";
-  }
-
-  if (perfil.authProvider === "password" || perfil.provider === "password") {
-    return "password";
-  }
-
-  return firebaseUser?.providerData?.some(
-    (providerInfo) => providerInfo.providerId === "google.com",
-  )
-    ? "google"
-    : "password";
-};
-
-const registrarErroAuth = (contexto, error) => {
-  console.error(
-    `[Firebase Auth] ${contexto}`,
-    error?.code,
-    error?.message,
-    error,
-  );
-};
 
 const carregarPerfilUsuario = (firebaseUser) => {
   const perfilSalvo = lerPerfisSalvos()[firebaseUser.uid];
@@ -384,7 +108,7 @@ const carregarPerfilUsuario = (firebaseUser) => {
 
   return {
     uid: firebaseUser.uid,
-    nome: perfilSalvo?.nome || firebaseUser.displayName || "Auditor EnergiaPI",
+    nome: perfilSalvo?.nome || firebaseUser.displayName || NOME_AUDITOR_FALLBACK,
     email: perfilSalvo?.email || firebaseUser.email || "",
     tipoUsuario,
     onboardingCompleto: Boolean(
@@ -392,8 +116,7 @@ const carregarPerfilUsuario = (firebaseUser) => {
     ),
     escolaId: perfilSalvo?.escolaId || "",
     escolaNome: tipoUsuario === "estudante" ? escolaNome : "",
-    GRE: tipoUsuario === "estudante" ? perfilSalvo?.GRE || perfilSalvo?.gre || "" : "",
-    gre: tipoUsuario === "estudante" ? perfilSalvo?.GRE || perfilSalvo?.gre || "" : "",
+    gre: tipoUsuario === "estudante" ? obterGre(perfilSalvo) : "",
     score: Number(perfilSalvo?.score || 0),
     escola: tipoUsuario === "estudante" ? escolaNome : ESCOLA_NAO_APLICA,
     authProvider: detectarAuthProvider(firebaseUser, perfilSalvo || {}),
@@ -405,37 +128,6 @@ const carregarPerfilUsuario = (firebaseUser) => {
     cep: perfilSalvo?.cep || "",
     perfil: tipoUsuario === "morador" ? "morador" : "estudante",
   };
-};
-
-const traduzirErroFirebase = (error) => {
-  const mensagens = {
-    "auth/email-already-in-use":
-      "Este email ja esta cadastrado. Tente fazer login.",
-    "auth/invalid-email": "Informe um email valido.",
-    "auth/invalid-credential": "Email ou senha invalidos.",
-    "auth/popup-closed-by-user":
-      "Login com Google cancelado antes da conclusao.",
-    "auth/popup-blocked":
-      "O navegador bloqueou a janela do Google. Autorize popups ou tente novamente.",
-    "auth/cancelled-popup-request":
-      "Ja existe uma tentativa de login com Google em andamento.",
-    "auth/unauthorized-domain":
-      "Este dominio nao esta autorizado no Firebase Authentication.",
-    "auth/too-many-requests":
-      "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
-    "auth/popup-timeout":
-      "A janela do Google demorou para responder. Tente novamente.",
-    "auth/operation-not-supported-in-this-environment":
-      "Este navegador bloqueou o popup. Vamos tentar por redirecionamento.",
-    "auth/weak-password": "Use uma senha com pelo menos 6 caracteres.",
-    "auth/network-request-failed":
-      "Falha de conexao com o Firebase. Tente novamente.",
-  };
-
-  return (
-    mensagens[error?.code] ||
-    "Nao foi possivel autenticar agora. Tente novamente."
-  );
 };
 
 export default function App() {
@@ -491,7 +183,6 @@ export default function App() {
   // REFERÊNCIAS PARA CLIQUE FORA DOS MODAIS
   const modalTemplatesRef = useRef(null);
   const modalNovoRef = useRef(null);
-  const swipeStartRef = useRef(null);
   const authSyncSeqRef = useRef(0);
 
   const {
@@ -500,7 +191,7 @@ export default function App() {
     addDevice,
     updateDevice,
     deleteDevice,
-  } = useUserDevices(usuario?.uid);
+  } = useDevices(usuario?.uid);
   const { items: templatesFiltrados, loading: catalogoCarregando } =
     useDeviceCatalogSearch({
       termo: buscaTemplate,
@@ -521,39 +212,11 @@ export default function App() {
     (missao) => !missao.desbloqueada,
   );
   const {
-    escolas: rankingEscolas,
-    comunidade: rankingComunidade,
+    escolasOrdenadas: rankingEscolasOrdenado,
+    comunidadeOrdenada: rankingComunidadeOrdenado,
     loading: rankingsCarregando,
     error: rankingsErro,
-  } = useRankings();
-  const rankingComunidadeOrdenado = useMemo(
-    () =>
-      [...rankingComunidade].sort((a, b) => {
-        const scoreDelta =
-          Number(b.score || b.pontuacao || 0) -
-          Number(a.score || a.pontuacao || 0);
-        if (scoreDelta) return scoreDelta;
-        return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
-      }),
-    [rankingComunidade],
-  );
-  const rankingEscolasOrdenado = useMemo(
-    () =>
-      [...rankingEscolas].sort((a, b) => {
-        const scoreDelta =
-          Number(b.scoreTotal || b.totalKwhSalvo || 0) -
-          Number(a.scoreTotal || a.totalKwhSalvo || 0);
-        if (scoreDelta) return scoreDelta;
-        const auditoresDelta =
-          Number(b.auditores || b.alunosAtivos || 0) -
-          Number(a.auditores || a.alunosAtivos || 0);
-        if (auditoresDelta) return auditoresDelta;
-        const nomeA = nomePublicoEscola(a);
-        const nomeB = nomePublicoEscola(b);
-        return String(nomeA).localeCompare(String(nomeB), "pt-BR");
-      }),
-    [rankingEscolas],
-  );
+  } = useCommunityRanking();
 
   // SISTEMA DE CORES DINÂMICO
   const isDark = tema === "escuro";
@@ -597,7 +260,7 @@ export default function App() {
     nome:
       typeof usuario?.nome === "string" && usuario.nome.trim()
         ? usuario.nome.trim()
-        : "Auditor EnergiaPI",
+        : NOME_AUDITOR_FALLBACK,
     email: typeof usuario?.email === "string" ? usuario.email : "",
     escola:
       typeof usuario?.escolaNome === "string" && usuario.escolaNome.trim()
@@ -606,8 +269,7 @@ export default function App() {
           ? usuario.escola.trim()
           : "EnergiaPI",
     escolaId: usuario?.escolaId || "",
-    GRE: usuario?.GRE || usuario?.gre || "",
-    gre: usuario?.GRE || usuario?.gre || "",
+    gre: obterGre(usuario),
     endereco:
       typeof usuario?.endereco === "string" && usuario.endereco.trim()
         ? usuario.endereco.trim()
@@ -629,10 +291,11 @@ export default function App() {
     usuario.onboardingCompleto !== true;
   const bloqueandoRenderCadastroEmail =
     authProcessando === "email-cadastro" && autenticado;
-  const abaIndiceAtual = useMemo(
-    () => Math.max(ABAS_APP.indexOf(abaSelecionada), 0),
-    [abaSelecionada],
-  );
+  const { handleSwipeStart, handleSwipeEnd } = useSwipeNavigation({
+    abas: ABAS_APP,
+    abaAtual: abaSelecionada,
+    onChange: setAbaSelecionada,
+  });
 
   const dispararNotificacao = useCallback((mensagem) => {
     setNotificacao(mensagem);
@@ -644,7 +307,7 @@ export default function App() {
 
     console.warn("[Firebase Config] Login bloqueado", firebaseConfigStatus);
     dispararNotificacao(
-      "Firebase nao configurado. Verifique as variaveis VITE_FIREBASE_*.",
+      "Não foi possível conectar aos serviços do app. Confira a configuração do ambiente.",
     );
     return false;
   }, [dispararNotificacao]);
@@ -655,25 +318,16 @@ export default function App() {
     setCategoriaTemplate("");
   }, []);
 
-  const verificarSenhasIguais = (s1, s2) => s1 === s2;
-  const calcularConsumoAparelho = (aparelhoOuPotencia, horasDia = 0) => {
-    if (typeof aparelhoOuPotencia === "object") {
-      return calcularConsumoMensal(aparelhoOuPotencia);
-    }
-
-    return calcularConsumoMensal({
-      potencia: aparelhoOuPotencia,
-      usoHorasDia: horasDia,
-      diasPorSemana: 7,
-      quantidade: 1,
-    });
-  };
-
   const consumoTotal = eletrodomesticos.reduce((acc, elet) => {
     return elet.ativo === false ? acc : acc + calcularConsumoMensal(elet);
   }, 0);
   const custoTotal = calcularCustoMensal(consumoTotal, TARIFA_KWH_PI);
   const carbonoTotal = calcularCarbonoMensal(consumoTotal);
+  const insightsEnergeticos = gerarInsightsEnergeticos({
+    aparelhos: eletrodomesticos,
+    consumoTotal,
+    custoTotal,
+  });
 
   useEffect(() => {
     const idsDesbloqueados = new Set(
@@ -708,23 +362,20 @@ export default function App() {
     const fallback = carregarPerfilUsuario(firebaseUser);
     const origem = { ...fallback, ...(perfilBase || {}) };
     const tipoUsuario =
-      origem.tipoUsuario === "morador" || origem.perfil === "morador"
-        ? "morador"
-        : origem.tipoUsuario === "estudante" || origem.tipoUsuario === "seduc"
-          ? "estudante"
-          : "";
+      normalizarTipoUsuario(origem.tipoUsuario) ||
+      (origem.perfil === "morador" ? "morador" : "");
     const perfilVisual =
       tipoUsuario || (origem.perfil === "morador" ? "morador" : "estudante");
     const escolaNome =
       tipoUsuario === "estudante"
         ? origem.escolaNome || origem.escola || ""
         : "";
-    const GRE = tipoUsuario === "estudante" ? origem.GRE || origem.gre || "" : "";
+    const gre = tipoUsuario === "estudante" ? obterGre(origem) : "";
     const authProvider = detectarAuthProvider(firebaseUser, origem);
     const perfilSeguro = {
       ...origem,
       uid: firebaseUser.uid,
-      nome: origem.nome || firebaseUser.displayName || "Auditor EnergiaPI",
+      nome: origem.nome || firebaseUser.displayName || NOME_AUDITOR_FALLBACK,
       email: origem.email || firebaseUser.email || "",
       tipoUsuario,
       perfil: perfilVisual,
@@ -733,8 +384,7 @@ export default function App() {
       escolaId: tipoUsuario === "estudante" ? origem.escolaId || "" : "",
       escolaNome,
       escola: tipoUsuario === "morador" ? ESCOLA_NAO_APLICA : escolaNome,
-      GRE,
-      gre: GRE,
+      gre,
       endereco: origem.endereco || "",
       numero: origem.numero || "",
       cidade: origem.cidade || "",
@@ -756,8 +406,7 @@ export default function App() {
       setEscolaSelecionada({
         id: perfilSeguro.escolaId || "",
         nome: escolaNome,
-        GRE,
-        gre: GRE,
+        gre,
       });
     } else if (tipoUsuario === "morador") {
       setEscolaUsuario("");
@@ -881,12 +530,11 @@ export default function App() {
 
     const resolverRedirect = async () => {
       try {
-        await authReady;
-        const resultadoRedirect = await getRedirectResult(auth);
+        const resultadoRedirect = await resolveGoogleRedirect();
 
         if (ativo && resultadoRedirect?.user) {
           await sincronizarUsuarioAutenticado(resultadoRedirect.user);
-          dispararNotificacao("Autenticado com Google pelo Firebase.");
+          dispararNotificacao("Conta Google conectada.");
         }
       } catch (error) {
         registrarErroAuth("google-redirect", error);
@@ -896,8 +544,7 @@ export default function App() {
 
     resolverRedirect();
 
-    const unsubscribe = onAuthStateChanged(
-      auth,
+    const unsubscribe = subscribeAuthState(
       async (firebaseUser) => {
         try {
           if (import.meta.env.DEV) {
@@ -957,12 +604,7 @@ export default function App() {
       usuario.uid,
       (perfilFirestore) => {
         if (!perfilFirestore) return;
-        const tipoUsuario =
-          perfilFirestore.tipoUsuario === "morador"
-            ? "morador"
-            : perfilFirestore.tipoUsuario === "estudante"
-              ? "estudante"
-              : "";
+        const tipoUsuario = normalizarTipoUsuario(perfilFirestore.tipoUsuario);
         setUsuario((atual) => ({
           ...(atual || {}),
           ...perfilFirestore,
@@ -978,7 +620,7 @@ export default function App() {
               : tipoUsuario === "morador"
                 ? ESCOLA_NAO_APLICA
                 : atual?.escola || "",
-          GRE: perfilFirestore.GRE || perfilFirestore.gre || "",
+          gre: obterGre(perfilFirestore),
         }));
         setPontuacao(Number(perfilFirestore.score || 0));
       },
@@ -1007,14 +649,14 @@ export default function App() {
         );
 
         if (!resposta.ok) {
-          throw criarErroFluxo("cep/network", "Falha ao consultar o CEP.");
+          throw new Error("Falha ao consultar o CEP.");
         }
 
         const dados = await resposta.json();
 
         if (dados.erro) {
           setCepStatus("erro");
-          setCepMensagem("CEP nao encontrado.");
+          setCepMensagem("CEP não encontrado.");
           return;
         }
 
@@ -1030,7 +672,7 @@ export default function App() {
         if (error.name === "AbortError") return;
         console.error("[ViaCEP]", error?.message, error);
         setCepStatus("erro");
-        setCepMensagem("Nao foi possivel consultar o CEP agora.");
+          setCepMensagem("Não foi possível consultar o CEP agora.");
       }
     }, 500);
 
@@ -1136,104 +778,6 @@ export default function App() {
     rankingEscolasOrdenado.length,
   ]);
 
-  // MOTOR DE "INSIGHTS INTELIGENTES" (Requisito 4)
-  const gerarInsightsInteligentes = () => {
-    const insights = [];
-
-    // Verifica vilões extremos
-    const chuveiro = eletrodomesticos.find(
-      (e) => e.nome.toLowerCase().includes("chuveiro") && e.ativo,
-    );
-    const arCondicionado = eletrodomesticos.find(
-      (e) =>
-        (e.nome.toLowerCase().includes("ar-condicionado") ||
-          e.nome.toLowerCase().includes("ar condicionado")) &&
-        e.ativo,
-    );
-    const lampadasIncandescentes = eletrodomesticos.find(
-      (e) => e.nome.toLowerCase().includes("incandescente") && e.ativo,
-    );
-
-    if (eletrodomesticos.length === 0) {
-      return [
-        {
-          id: "cadastro",
-          titulo: "Mapeamento Inicial pendente",
-          descricao:
-            "Cadastre seus primeiros aparelhos residenciais para que nosso motor de inteligência analise e gere recomendações personalizadas.",
-          economiaKwh: 0,
-          economiaReais: 0,
-          tipo: "info",
-        },
-      ];
-    }
-
-    if (chuveiro && chuveiro.potencia >= 4000) {
-      const economiaKwh = calcularConsumoMensal({
-        ...chuveiro,
-        potencia: Math.max(chuveiro.potencia - 2500, 0),
-      });
-      const economiaReais = calcularCustoMensal(economiaKwh, TARIFA_KWH_PI);
-      insights.push({
-        id: "chuveiro_verao",
-        titulo: "Altere o Chuveiro para o modo Verão",
-        descricao: `Seu chuveiro elétrico opera em alta potência (${chuveiro.potencia}W). Reduzindo a temperatura ou mudando a chave para "Verão" (que reduz a potência para ~2500W), você gera economia real instantânea.`,
-        economiaKwh: economiaKwh.toFixed(1),
-        economiaReais: economiaReais.toFixed(2),
-        tipo: "alerta",
-      });
-    }
-
-    if (arCondicionado && arCondicionado.horasDia > 4) {
-      const economiaKwh =
-        calcularConsumoMensal(arCondicionado) * 0.2; // 20% economia regulando temp
-      const economiaReais = calcularCustoMensal(economiaKwh, TARIFA_KWH_PI);
-      insights.push({
-        id: "ar_23",
-        titulo: "Ajuste o Ar-condicionado para 23°C",
-        descricao: `Seu aparelho climatiza por longas horas (${arCondicionado.horasDia}h/dia). Programar em 23°C em vez de temperaturas mais baixas (como 17°C) impede que o compressor trabalhe sem pausas.`,
-        economiaKwh: economiaKwh.toFixed(1),
-        economiaReais: economiaReais.toFixed(2),
-        tipo: "economia",
-      });
-    }
-
-    if (lampadasIncandescentes) {
-      const quantidade = 3; // fictício para o cálculo
-      const potenciaLedEquivalente = 9;
-      const diferencaPotencia =
-        (lampadasIncandescentes.potencia - potenciaLedEquivalente) * quantidade;
-      const economiaKwh = calcularConsumoMensal({
-        ...lampadasIncandescentes,
-        potencia: diferencaPotencia,
-      });
-      const economiaReais = calcularCustoMensal(economiaKwh, TARIFA_KWH_PI);
-      insights.push({
-        id: "substituicao_led",
-        titulo: "Substitua Lâmpadas Antigas por LED",
-        descricao: `Lâmpadas incandescentes gastam energia desnecessária em forma de calor. Trocar 3 delas por tecnologia LED gera economia a curto prazo.`,
-        economiaKwh: economiaKwh.toFixed(1),
-        economiaReais: economiaReais.toFixed(2),
-        tipo: "oportunidade",
-      });
-    }
-
-    // Se nenhum vilão específico for mapeado
-    if (insights.length === 0) {
-      insights.push({
-        id: "geral_standby",
-        titulo: "Combata o Consumo Standby",
-        descricao:
-          "Aparelhos conectados em tomada no modo de espera (luz vermelha) consomem energia passivamente. Tirar roteadores ou TVs desnecessários da tomada à noite gera redução média de 5% na fatura.",
-        economiaKwh: (consumoTotal * 0.05).toFixed(1),
-        economiaReais: (custoTotal * 0.05).toFixed(2),
-        tipo: "economia",
-      });
-    }
-
-    return insights;
-  };
-
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     if (authEmAndamento) return;
@@ -1244,26 +788,20 @@ export default function App() {
     setAuthProcessando(isLogin ? "email-login" : "email-cadastro");
 
     try {
-      await authReady;
-
       if (isLogin) {
         if (!email || !senha) {
           dispararNotificacao("Preencha email e senha para entrar.");
           return;
         }
 
-        const credencial = await signInWithEmailAndPassword(
-          auth,
-          emailNormalizado,
-          senha,
-        );
+        const credencial = await loginWithEmail(emailNormalizado, senha);
         await sincronizarUsuarioAutenticado(credencial.user);
-        dispararNotificacao(`Bem-vindo de volta! Seu diagnostico esta pronto.`);
+        dispararNotificacao("Bem-vindo de volta. Seu diagnóstico está pronto.");
         return;
       }
 
       if (!verificarSenhasIguais(senha, confirmarSenha)) {
-        dispararNotificacao("Erro: As senhas digitadas nao coincidem!");
+        dispararNotificacao("As senhas digitadas não coincidem.");
         return;
       }
 
@@ -1282,17 +820,16 @@ export default function App() {
 
       if (!camposComunsOk || !camposEstudanteOk) {
         dispararNotificacao(
-          "Por favor, preencha todos os campos do formulario.",
+          "Preencha os dados obrigatórios para concluir o perfil.",
         );
         return;
       }
 
-      const credencial = await createUserWithEmailAndPassword(
-        auth,
-        emailNormalizado,
+      const credencial = await createAccountWithEmail({
+        email: emailNormalizado,
         senha,
-      );
-      await updateProfile(credencial.user, { displayName: nomeUsuario });
+        nome: nomeUsuario,
+      });
 
       const [cidadeCadastro = "", estadoCadastro = ""] = estadoCidade
         .split(" - ")
@@ -1306,10 +843,16 @@ export default function App() {
         onboardingCompleto: true,
         escolaId: perfil === "estudante" ? escolaSelecionada?.id || "" : "",
         escolaNome: perfil === "estudante" ? escolaUsuario : "",
-        GRE: perfil === "estudante" ? escolaSelecionada?.GRE || escolaSelecionada?.gre || "" : "",
+        gre: perfil === "estudante" ? obterGre(escolaSelecionada) : "",
         score: 0,
         escola: perfil === "estudante" ? escolaUsuario : ESCOLA_NAO_APLICA,
-        endereco: montarEndereco({ bairro, numero, estadoCidade, cep }),
+        endereco: montarEndereco({
+          bairro,
+          numero,
+          cidade: cidadeCadastro,
+          estado: estadoCadastro,
+          cep,
+        }),
         numero,
         cidade: cidadeCadastro,
         bairro,
@@ -1324,7 +867,7 @@ export default function App() {
       setSenha("");
       setConfirmarSenha("");
       dispararNotificacao(
-        `Cadastro efetuado! Bem-vindo como ${perfil === "estudante" ? "Estudante" : "Morador"}.`,
+        `Cadastro concluído. Perfil: ${perfil === "estudante" ? "estudante" : "morador"}.`,
       );
     } catch (error) {
       registrarErroAuth(isLogin ? "email-login" : "email-cadastro", error);
@@ -1339,7 +882,7 @@ export default function App() {
     const perfilFirebase = await sincronizarUsuarioAutenticado(
       firebaseUser,
       perfilSalvo || {
-        nome: firebaseUser.displayName || nomeUsuario || "Auditor EnergiaPI",
+        nome: firebaseUser.displayName || nomeUsuario || NOME_AUDITOR_FALLBACK,
         email: firebaseUser.email || emailNormalizado,
         authProvider: "google",
       },
@@ -1354,8 +897,8 @@ export default function App() {
     dispararNotificacao(
       perfilFirebase?.onboardingCompleto
         ? origem === "login"
-          ? "Login com Google concluido."
-          : "Cadastro com Google concluido."
+          ? "Login com Google concluído."
+          : "Cadastro com Google concluído."
         : "Complete seu perfil para liberar a plataforma.",
     );
   };
@@ -1368,8 +911,7 @@ export default function App() {
     let usandoRedirect = false;
 
     try {
-      await authReady;
-      const credencial = await aguardarPopup(signInWithPopup(auth, provider));
+      const credencial = await loginWithGooglePopup();
       await finalizarGoogleAuth(credencial.user, origem);
     } catch (error) {
       registrarErroAuth(`google-${origem}`, error);
@@ -1383,7 +925,7 @@ export default function App() {
         usandoRedirect = true;
         dispararNotificacao("Popup bloqueado. Redirecionando para o Google...");
         try {
-          await signInWithRedirect(auth, provider);
+          await loginWithGoogleRedirect();
           return;
         } catch (redirectError) {
           usandoRedirect = false;
@@ -1406,8 +948,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await authReady;
-      await signOut(auth);
+      await logoutFirebase();
       authSyncSeqRef.current += 1;
       setAutenticado(false);
       setUsuario(null);
@@ -1423,16 +964,15 @@ export default function App() {
 
   const handleOnboardingSubmit = async (dadosOnboarding) => {
     try {
-      await authReady;
-      const firebaseUser = auth.currentUser;
+      const firebaseUser = await getCurrentFirebaseUser();
       if (!firebaseUser) {
-        dispararNotificacao("Sessao expirada. Entre novamente.");
+        dispararNotificacao("Sessão expirada. Entre novamente.");
         return;
       }
 
       const perfilFirebase = {
         uid: firebaseUser.uid,
-        nome: usuario?.nome || firebaseUser.displayName || "Auditor EnergiaPI",
+        nome: usuario?.nome || firebaseUser.displayName || NOME_AUDITOR_FALLBACK,
         email: usuario?.email || firebaseUser.email || "",
         score: Number(usuario?.score || 0),
         authProvider: "google",
@@ -1460,7 +1000,7 @@ export default function App() {
     } catch (error) {
       console.error("[Onboarding]", error);
       dispararNotificacao(
-        "Nao foi possivel concluir o perfil agora. Tente novamente.",
+        "Não foi possível concluir o perfil agora. Tente novamente.",
       );
     }
   };
@@ -1614,152 +1154,6 @@ export default function App() {
     dispararNotificacao("Parabéns! +" + missao.pontos + " pontos conquistados!");
   };
 
-  const SliderAnimado = ({ value, min, max, step, onChange, colorClass }) => {
-    const sliderRef = useRef(null);
-    const frameRef = useRef(null);
-    const nextValueRef = useRef(value);
-    const trackInset = 12;
-    const range = Math.max(Number(max) - Number(min), Number(step) || 1);
-    const parsedValue = Number(value);
-    const valueNumber = Number.isFinite(parsedValue) ? parsedValue : Number(min);
-    const percentage = Math.min(
-      Math.max(((valueNumber - Number(min)) / range) * 100, 0),
-      100,
-    );
-
-    useEffect(
-      () => () => {
-        if (frameRef.current) cancelAnimationFrame(frameRef.current);
-      },
-      [],
-    );
-
-    const emitirMudanca = (nextValue) => {
-      nextValueRef.current = nextValue;
-      if (frameRef.current) return;
-
-      frameRef.current = requestAnimationFrame(() => {
-        frameRef.current = null;
-        onChange({ target: { value: String(nextValueRef.current) } });
-      });
-    };
-
-    const ajustarPorPonteiro = (event) => {
-      const rect = sliderRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const usableWidth = Math.max(rect.width - trackInset * 2, 1);
-      const ratio = Math.min(
-        Math.max((event.clientX - rect.left - trackInset) / usableWidth, 0),
-        1,
-      );
-      const raw = ratio * (max - min) + min;
-      const stepped = Math.round((raw - min) / step) * step + min;
-      const nextValue = Math.min(Math.max(Number(stepped.toFixed(3)), min), max);
-      emitirMudanca(nextValue);
-    };
-
-    const bloquearGestoGlobal = (event) => {
-      event.stopPropagation();
-      event.preventDefault();
-    };
-
-    return (
-      <div
-        ref={sliderRef}
-        data-no-swipe="true"
-        data-slider-control="true"
-        className="relative h-10 w-full overflow-visible rounded-full select-none touch-none group slider-ios"
-        onTouchStart={(event) => event.stopPropagation()}
-        onTouchMove={(event) => event.stopPropagation()}
-        onPointerDown={(event) => {
-          bloquearGestoGlobal(event);
-          event.currentTarget.setPointerCapture?.(event.pointerId);
-          ajustarPorPonteiro(event);
-        }}
-        onPointerMove={(event) => {
-          if (event.buttons !== 1) return;
-          bloquearGestoGlobal(event);
-          ajustarPorPonteiro(event);
-        }}
-        onPointerUp={(event) => {
-          event.stopPropagation();
-          event.currentTarget.releasePointerCapture?.(event.pointerId);
-        }}
-        onPointerCancel={(event) => {
-          event.stopPropagation();
-          event.currentTarget.releasePointerCapture?.(event.pointerId);
-        }}
-      >
-        <div className="absolute inset-x-3 top-1/2 h-7 -translate-y-1/2">
-          <div
-            className={`absolute inset-x-0 top-1/2 h-3 -translate-y-1/2 rounded-full ${isDark ? "bg-slate-900/80" : "bg-slate-200/90"} shadow-inner border ${isDark ? "border-white/5" : "border-white/70"}`}
-          />
-          <div
-            className={`absolute left-0 top-1/2 h-3 -translate-y-1/2 ${colorClass} rounded-full transition-[width] duration-75 ease-out shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] slider-fill`}
-            style={{ width: `${percentage}%` }}
-          />
-          <div
-            className="absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_6px_16px_rgba(0,0,0,0.24)] ring-2 ring-white/70 transition-[left,transform] duration-75 ease-out pointer-events-none group-active:scale-95 slider-thumb"
-            style={{ left: `${percentage}%` }}
-          />
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={onChange}
-          data-no-swipe="true"
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
-        />
-      </div>
-    );
-  };
-
-  const handleSwipeStart = (event) => {
-    if (event.target.closest("input, textarea, select, button, [data-no-swipe='true']")) {
-      swipeStartRef.current = null;
-      return;
-    }
-
-    const touch = event.touches?.[0];
-    if (!touch) return;
-    swipeStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now(),
-    };
-  };
-
-  const handleSwipeEnd = (event) => {
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!start) return;
-
-    const touch = event.changedTouches?.[0];
-    if (!touch) return;
-
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    const duration = Math.max(Date.now() - start.time, 1);
-    const velocity = Math.abs(deltaX) / duration;
-    const horizontalIntent = Math.abs(deltaX) > Math.abs(deltaY) * 1.35;
-    const shouldSwipe =
-      Math.abs(deltaX) >= SWIPE_MIN_DISTANCE || velocity > 0.42;
-
-    if (!horizontalIntent || !shouldSwipe || Math.abs(deltaY) > 92) return;
-
-    const nextIndex =
-      deltaX < 0
-        ? Math.min(abaIndiceAtual + 1, ABAS_APP.length - 1)
-        : Math.max(abaIndiceAtual - 1, 0);
-
-    if (nextIndex !== abaIndiceAtual) {
-      setAbaSelecionada(ABAS_APP[nextIndex]);
-    }
-  };
-
   return (
     <div
       className={`h-screen flex flex-col overflow-hidden antialiased selection:bg-[#10B981] selection:text-white transition-colors duration-500 ${tm.bg} ${tm.text}`}
@@ -1894,99 +1288,31 @@ export default function App() {
         }
       `}</style>
 
-      {/* NOTIFICAÇÃO (Estilo Toast Premium) */}
-      {notificacao && (
-        <div
-          className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[90%] md:w-auto max-w-md ${isDark ? "bg-[#111d35]/90 backdrop-blur-xl border border-slate-700/50" : "bg-white/90 backdrop-blur-xl border border-slate-200"} ${tm.text} p-4 rounded-2xl shadow-2xl z-[100] flex items-center justify-between gap-4 animate-bounce`}
-        >
-          <div className="flex items-center gap-3">
-            <Sparkles className="text-[#10B981] flex-shrink-0" size={20} />
-            <p className="text-xs font-semibold tracking-wide">{notificacao}</p>
-          </div>
-          <button
-            onClick={() => setNotificacao(null)}
-            className={`p-1 rounded-full hover:bg-slate-500/20 ${tm.textMuted} hover:${tm.text} transition-colors`}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      <Toast
+        mensagem={notificacao}
+        isDark={isDark}
+        tm={tm}
+        onClose={() => setNotificacao(null)}
+      />
 
-      {/* TELA DE AUTENTICAÇÃO / CADASTRO */}
-      {quickEdit && (
-        <div
-          data-quick-editor="true"
-          className={`${tm.modal} fixed z-[120] w-[238px] rounded-[1.5rem] border p-3 shadow-2xl animate-fade-in-scale gpu-smooth`}
-          style={{
-            top: quickEdit.anchor.top,
-            left: quickEdit.anchor.left,
-          }}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className={`text-[10px] font-black uppercase tracking-widest ${tm.textMuted}`}>
-              {quickEdit.label}
-            </p>
-            <button
-              type="button"
-              onClick={() => setQuickEdit(null)}
-              className={`p-1.5 rounded-full hover:bg-slate-500/10 ${tm.textMuted} hover:text-[#EF4444] transition-colors`}
-              aria-label="Fechar ajuste rapido"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <div className="grid grid-cols-[42px_1fr_42px] items-center gap-2">
-            <button
-              type="button"
-              onClick={() => aplicarValorRapido(quickEdit.value - quickEdit.step)}
-              className={`${isDark ? "bg-slate-900/70 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"} h-10 rounded-2xl border text-lg font-black active:scale-95 transition-all`}
-            >
-              -
-            </button>
-            <input
-              type="number"
-              min={quickEdit.min}
-              max={quickEdit.max}
-              step={quickEdit.step}
-              value={quickEdit.value}
-              onChange={(event) => aplicarValorRapido(event.target.value)}
-              className={`h-10 text-center rounded-2xl border text-sm font-black outline-none ${tm.input}`}
-            />
-            <button
-              type="button"
-              onClick={() => aplicarValorRapido(quickEdit.value + quickEdit.step)}
-              className={`${isDark ? "bg-slate-900/70 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"} h-10 rounded-2xl border text-lg font-black active:scale-95 transition-all`}
-            >
-              +
-            </button>
-          </div>
-          <input
-            type="range"
-            min={quickEdit.min}
-            max={quickEdit.max}
-            step={quickEdit.step}
-            value={quickEdit.value}
-            onChange={(event) => aplicarValorRapido(event.target.value)}
-            className="mt-3 w-full accent-[#10B981]"
-          />
-          <p className="mt-2 text-center text-[10px] font-black uppercase tracking-widest text-[#10B981]">
-            {quickEdit.value}
-            {quickEdit.suffix}
-          </p>
-        </div>
-      )}
+      <QuickEditPopover
+        quickEdit={quickEdit}
+        isDark={isDark}
+        tm={tm}
+        onApply={aplicarValorRapido}
+        onClose={() => setQuickEdit(null)}
+      />
 
       {authCarregando || bloqueandoRenderCadastroEmail ? (
         <div className="flex-1 min-h-0 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative overflow-y-auto">
           <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-4">
             <div className="flex flex-col items-center gap-4">
-              <LogoEnergiaPI size={72} className="mb-2" />
+              <BrandLogo size={72} className="mb-2" />
               <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin" />
               <p className="text-slate-400 text-[10px] text-center font-bold uppercase tracking-wider">
                 {bloqueandoRenderCadastroEmail
-                  ? "Finalizando cadastro seguro"
-                  : "Restaurando sessao segura"}
+                  ? "Finalizando cadastro"
+                  : "Abrindo sua sessão"}
               </p>
             </div>
           </div>
@@ -1995,7 +1321,7 @@ export default function App() {
         <div className="flex-1 min-h-0 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative scroll-custom overflow-y-auto">
           <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-4">
             <div className="flex flex-col items-center mb-6">
-              <LogoEnergiaPI size={72} className="mb-4" />
+              <BrandLogo size={72} className="mb-4" />
 
               <h1 className="text-2xl font-extrabold tracking-tight mb-1 text-white">
                 Energia<span className="text-[#10B981]">PI</span>
@@ -2050,7 +1376,7 @@ export default function App() {
                   >
                     {authProcessando === "email-login"
                       ? "Entrando..."
-                      : "Iniciar Sessao"}{" "}
+                      : "Entrar"}{" "}
                     <ChevronRight size={18} />
                   </button>
 
@@ -2281,7 +1607,7 @@ export default function App() {
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <LogoEnergiaPI size={40} />
+                <BrandLogo size={40} />
                 <div>
                   <h2 className={`text-md font-bold leading-none ${tm.text}`}>
                     Energia<span className="text-neon-green">PI</span>
@@ -2533,7 +1859,7 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {gerarInsightsInteligentes().map((insight) => (
+                    {insightsEnergeticos.map((insight) => (
                       <div
                         key={insight.id}
                         className={`border rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between ${
@@ -2685,10 +2011,10 @@ export default function App() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className={`text-base font-bold ${tm.text}`}>
-                          Ranking de Vilões de Consumo
+                          Maiores consumos da casa
                         </h4>
                         <p className={`text-xs ${tm.textMuted}`}>
-                          Aparelhos com maior faturamento energético
+                          Equipamentos que mais pesam na estimativa mensal
                         </p>
                       </div>
                       <AlertTriangle size={18} className="text-[#EF4444]" />
@@ -2734,7 +2060,7 @@ export default function App() {
                                     <span className="text-[#10B981] font-extrabold w-4">
                                       {i + 1}.
                                     </span>
-                                    <Emoji>{iconeAparelhoSeguro(elet)}</Emoji>
+                                    <DeviceIcon device={elet} />
                                     <span>{elet.nome}</span>
                                   </span>
                                   <span>
@@ -2824,7 +2150,7 @@ export default function App() {
                   >
                     <div className="w-10 h-10 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mb-4" />
                     <p className={`text-sm font-bold ${tm.text}`}>
-                      Sincronizando aparelhos...
+                      Carregando seus aparelhos...
                     </p>
                   </div>
                 ) : eletrodomesticos.length === 0 ? (
@@ -2861,7 +2187,7 @@ export default function App() {
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
                               <span className="text-3xl bg-white/5 p-2 rounded-xl border border-white/5">
-                                <Emoji>{iconeAparelhoSeguro(elet)}</Emoji>
+                                <DeviceIcon device={elet} />
                               </span>
                               <input
                                 type="text"
@@ -2936,11 +2262,12 @@ export default function App() {
                                   {elet.usoHorasDia ?? elet.horasDia} h/dia
                                 </button>
                               </div>
-                              <SliderAnimado
+                              <AnimatedSlider
                                 value={elet.usoHorasDia ?? elet.horasDia}
                                 min={0}
                                 max={24}
                                 step={0.5}
+                                isDark={isDark}
                                 onChange={(e) =>
                                   atualizarEletrodomestico(
                                     elet.id,
@@ -2976,11 +2303,12 @@ export default function App() {
                                   {elet.diasPorSemana || 1}x
                                 </button>
                               </div>
-                              <SliderAnimado
+                              <AnimatedSlider
                                 value={elet.diasPorSemana || 1}
                                 min={1}
                                 max={7}
                                 step={1}
+                                isDark={isDark}
                                 onChange={(e) =>
                                   atualizarEletrodomestico(
                                     elet.id,
@@ -3016,11 +2344,12 @@ export default function App() {
                                   {elet.quantidade || 1}
                                 </button>
                               </div>
-                              <SliderAnimado
+                              <AnimatedSlider
                                 value={elet.quantidade || 1}
                                 min={1}
                                 max={35}
                                 step={1}
+                                isDark={isDark}
                                 onChange={(e) =>
                                   atualizarEletrodomestico(
                                     elet.id,
@@ -3074,497 +2403,39 @@ export default function App() {
 
             {/* ABA: MISSÕES GAMIFICADAS (Requisito 2) */}
             {abaSelecionada === "missões" && (
-              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
-                <div>
-                  <h3
-                    className={`text-2xl font-extrabold tracking-tight ${tm.text}`}
-                  >
-                    Pratique Economizar Energia!
-                  </h3>
-                  <p className={`text-xs ${tm.textMuted}`}>
-                    Complete as missões semanais e ative novas conquistas
-                    ambientais.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {missoesDisponiveis.map((missao) => (
-                    <div
-                      key={missao.id}
-                      className={`border rounded-[2rem] p-6 flex flex-col justify-between space-y-5 relative overflow-hidden transition-all duration-500 animate-fade-in-scale ${
-                        missao.concluida
-                          ? isDark
-                            ? "border-[#10B981]/30 bg-gradient-to-br from-[#10B981]/5 to-[#111d35]"
-                            : "border-[#10B981]/50 bg-gradient-to-br from-emerald-50 to-white"
-                          : tm.card
-                      }`}
-                    >
-                      <div className="space-y-3 relative">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${isDark ? "text-slate-400 bg-slate-900" : "text-slate-600 bg-slate-100"}`}
-                          >
-                            {missao.categoria}
-                          </span>
-                          <span
-                            className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${missao.dificuldade.startsWith("F") ? "text-emerald-600 bg-emerald-500/10" : missao.dificuldade.startsWith("M") ? "text-cyan-600 bg-cyan-500/10" : "text-red-500 bg-red-500/10"}`}
-                          >
-                            {missao.dificuldade}
-                          </span>
-                        </div>
-                        <h4
-                          className={`text-lg font-extrabold flex items-center gap-2 ${tm.text}`}
-                        >
-                          {missao.concluida && (
-                            <CheckCircle size={20} className="text-[#10B981]" />
-                          )}
-                          {missao.titulo}
-                        </h4>
-                        <p
-                          className={`text-xs leading-relaxed font-medium ${tm.textMuted}`}
-                        >
-                          {missao.descricao}
-                        </p>
-                      </div>
-
-                      <div
-                        className={`grid grid-cols-3 gap-3 p-4 rounded-2xl border ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}
-                      >
-                        <div className="text-center">
-                          <p
-                            className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
-                          >
-                            Economia
-                          </p>
-                          <p className={`text-sm font-black ${tm.text}`}>
-                            {missao.impactoKwh}{" "}
-                            <span className="text-[9px] text-slate-500">
-                              kWh
-                            </span>
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p
-                            className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
-                          >
-                            Financeiro
-                          </p>
-                          <p className="text-sm font-black text-[#10B981]">
-                            R$ {missao.impactoReais.toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p
-                            className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
-                          >
-                            Score
-                          </p>
-                          <p className="text-sm font-black text-[#06B6D4]">
-                            +{missao.pontos}{" "}
-                            <span className="text-[9px] text-cyan-700/50">
-                              pts
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="relative z-20">
-                        {missao.concluida ? (
-                          <div className="text-center bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] py-3.5 rounded-2xl text-xs font-extrabold uppercase tracking-wider">
-                            Concluída e Auditada
-                          </div>
-                        ) : missao.ativa ? (
-                          <button
-                            onClick={() => completarMissao(missao.id)}
-                            className="w-full bg-gradient-to-r from-[#06B6D4] to-[#10B981] text-white font-extrabold text-xs py-4 rounded-2xl transition-all duration-300 uppercase tracking-wider active:scale-[0.98] shadow-[0_8px_20px_rgba(16,185,129,0.2)]"
-                          >
-                            Registrar Conclusão
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => aceitarMissao(missao.id)}
-                            className={`w-full font-extrabold text-xs py-4 rounded-2xl transition-all duration-300 uppercase tracking-wider active:scale-95 border ${isDark ? "bg-slate-800 text-white hover:bg-slate-700 border-slate-700" : "bg-white text-slate-800 hover:bg-slate-50 border-slate-300 shadow-sm"}`}
-                          >
-                            Aceitar Missão
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {missoesFuturas.length > 0 && (
-                  <div className="flex flex-col items-center gap-3 pt-2">
-                    <button
-                      onClick={() => setVerMaisMissoes(!verMaisMissoes)}
-                      className={`font-extrabold text-xs py-3.5 px-8 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2 uppercase tracking-widest border ${isDark ? "bg-white text-slate-900 border-white/10" : "bg-slate-900 text-white border-slate-900"}`}
-                    >
-                      <Eye className="w-4 h-4" />{" "}
-                      {verMaisMissoes
-                        ? "Ocultar Missões Futuras"
-                        : "Mostrar Mais Missões"}
-                    </button>
-                  </div>
-                )}
-
-                {verMaisMissoes && missoesFuturas.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-in-scale">
-                    {missoesFuturas.map((missao) => (
-                      <div
-                        key={missao.id}
-                        className={`border rounded-[2rem] p-6 flex flex-col justify-between space-y-5 relative overflow-hidden transition-all duration-500 opacity-70 ${isDark ? "bg-slate-900/30 border-slate-800/80" : "bg-white/60 border-slate-200"}`}
-                      >
-                        <div className="absolute inset-0 bg-[#0B1426]/10 backdrop-blur-[1.5px] z-10 pointer-events-none" />
-                        <div className="absolute top-5 right-5 z-20 bg-black/40 p-2.5 rounded-full border border-white/10 shadow-lg">
-                          <LockIcon className="text-slate-300 w-4 h-4 animate-pulse" />
-                        </div>
-
-                        <div className="space-y-3 relative z-20 blur-[0.2px]">
-                          <div className="flex items-center justify-between pr-12">
-                            <span
-                              className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${isDark ? "text-slate-400 bg-slate-900" : "text-slate-600 bg-slate-100"}`}
-                            >
-                              {missao.categoria}
-                            </span>
-                            <span
-                              className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${missao.dificuldade.startsWith("F") ? "text-emerald-600 bg-emerald-500/10" : missao.dificuldade.startsWith("M") ? "text-cyan-600 bg-cyan-500/10" : "text-red-500 bg-red-500/10"}`}
-                            >
-                              {missao.dificuldade}
-                            </span>
-                          </div>
-                          <h4
-                            className={`text-lg font-extrabold flex items-center gap-2 ${tm.text}`}
-                          >
-                            {missao.titulo}
-                          </h4>
-                          <p
-                            className={`text-xs leading-relaxed font-medium ${tm.textMuted}`}
-                          >
-                            {missao.descricao}
-                          </p>
-                        </div>
-
-                        <div
-                          className={`grid grid-cols-3 gap-3 p-4 rounded-2xl border relative z-20 ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}
-                        >
-                          <div className="text-center">
-                            <p
-                              className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
-                            >
-                              Economia
-                            </p>
-                            <p className={`text-sm font-black ${tm.text}`}>
-                              {missao.impactoKwh}{" "}
-                              <span className="text-[9px] text-slate-500">
-                                kWh
-                              </span>
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <p
-                              className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
-                            >
-                              Financeiro
-                            </p>
-                            <p className="text-sm font-black text-[#10B981]">
-                              R$ {missao.impactoReais.toFixed(2)}
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <p
-                              className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
-                            >
-                              Score
-                            </p>
-                            <p className="text-sm font-black text-[#06B6D4]">
-                              +{missao.pontos}{" "}
-                              <span className="text-[9px] text-cyan-700/50">
-                                pts
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="relative z-20 text-center bg-white/5 border border-white/10 text-slate-300 py-3.5 rounded-2xl text-[10px] font-extrabold uppercase tracking-wider">
-                          Libera com {missao.threshold} pts • Trilha{" "}
-                          {missao.trilha}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <MissionsView
+                disponiveis={missoesDisponiveis}
+                futuras={missoesFuturas}
+                verMais={verMaisMissoes}
+                onToggleMore={() => setVerMaisMissoes(!verMaisMissoes)}
+                onAccept={aceitarMissao}
+                onComplete={completarMissao}
+                tm={tm}
+                isDark={isDark}
+              />
             )}
 
             {/* ABA: COMUNIDADE (Requisito 6) */}
             {abaSelecionada === "comunidade" && (
-              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <h3
-                      className={`text-2xl font-extrabold tracking-tight ${tm.text}`}
-                    >
-                      Comunidade EnergiaPI
-                    </h3>
-                    <p className={`text-xs ${tm.textMuted}`}>
-                      O ranking geral de pontuação dos auditores domésticos do
-                      estado.
-                    </p>
-                  </div>
-                  <div
-                    className={`border min-h-[46px] px-4 py-3 rounded-2xl flex items-center justify-center gap-3 shadow-sm max-w-full text-center ${isDark ? "bg-[#111d35]/80 border-slate-800" : "bg-white border-slate-200"}`}
-                  >
-                    <Trophy className="text-[#10B981]" size={18} />
-                    <span className="text-xs font-bold text-neon-green leading-snug">
-                      Líderes de Economia
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  className={`border rounded-[2rem] overflow-hidden shadow-2xl ${tm.card}`}
-                >
-                  <div
-                    className={`hidden md:grid grid-cols-12 gap-4 px-6 py-5 border-b text-[10px] font-extrabold tracking-widest uppercase ${isDark ? "bg-[#0B1426]/80 border-slate-800 text-slate-500" : "bg-slate-50 border-slate-200 text-slate-500"}`}
-                  >
-                    <div className="col-span-1 text-center">Pos</div>
-                    <div className="col-span-5">Auditor / Perfil</div>
-                    <div className="col-span-3 text-left">CETI / Regional</div>
-                    <div className="col-span-2 text-right">Badges</div>
-                    <div className="col-span-1 text-right">Pontos</div>
-                  </div>
-
-                  <div
-                    className={`divide-y ${isDark ? "divide-slate-800/60" : "divide-slate-100"}`}
-                  >
-                    {rankingsCarregando && rankingComunidadeOrdenado.length === 0 ? (
-                      <div className="px-6 py-10 text-center">
-                        <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className={`text-sm font-bold ${tm.text}`}>
-                          Sincronizando comunidade...
-                        </p>
-                        <p className={`text-xs mt-1 ${tm.textMuted}`}>
-                          Buscando ranking em tempo real.
-                        </p>
-                      </div>
-                    ) : rankingComunidadeOrdenado.length === 0 ? (
-                      <div className="px-6 py-10 text-center">
-                        <p className={`text-sm font-bold ${tm.text}`}>
-                          Nenhum auditor ranqueado ainda.
-                        </p>
-                        <p className={`text-xs mt-1 ${tm.textMuted}`}>
-                          Os dados aparecem quando usuários reais concluem o onboarding.
-                        </p>
-                        {rankingsErro && (
-                          <p className="text-[10px] mt-3 font-bold uppercase tracking-wider text-[#F59E0B]">
-                            Nao foi possivel atualizar agora.
-                          </p>
-                        )}
-                      </div>
-                    ) : rankingComunidadeOrdenado.map((item, index) => {
-                      const isCurrentUser = item.nome === usuarioSeguro.nome;
-                      return (
-                        <div
-                          key={item.id}
-                          className={`grid grid-cols-[auto_1fr_auto] md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-5 items-center transition-all reveal-on-scroll ${
-                            isCurrentUser
-                              ? "bg-[#10B981]/5 border-y border-[#10B981]/15"
-                              : isDark
-                                ? "hover:bg-slate-800/30"
-                                : "hover:bg-slate-50"
-                          }`}
-                        >
-                          <div className="md:col-span-1 text-center font-black text-sm row-span-2 md:row-span-1 self-start md:self-center pt-1 md:pt-0">
-                            {index === 0 ? (
-                              <span className="text-xl">
-                                <Emoji>{EMOJIS.ouro}</Emoji>
-                              </span>
-                            ) : index === 1 ? (
-                              <span className="text-lg">
-                                <Emoji>{EMOJIS.prata}</Emoji>
-                              </span>
-                            ) : index === 2 ? (
-                              <span className="text-base">
-                                <Emoji>{EMOJIS.bronze}</Emoji>
-                              </span>
-                            ) : (
-                              <span className={`text-xs ${tm.textMuted}`}>
-                                {index + 1}
-                              </span>
-                            )}
-                          </div>
-                          <div className="md:col-span-5 flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-full bg-[#10B981]/10 flex shrink-0 items-center justify-center border border-[#10B981]/25 text-sm font-bold">
-                              {(item.nome || "A").charAt(0)}
-                            </div>
-                            <div className="min-w-0">
-                              <h4
-                                className={`font-extrabold text-xs sm:text-sm flex flex-wrap items-center gap-2 leading-snug ${tm.text}`}
-                              >
-                                {item.nome}
-                                {isCurrentUser && (
-                                  <span className="bg-[#10B981]/10 text-[#10B981] text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
-                                    Você
-                                  </span>
-                                )}
-                              </h4>
-                              <p
-                                className={`text-[10px] font-semibold mt-0.5 ${tm.textMuted}`}
-                              >
-                                {item.perfil}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="col-start-2 col-span-2 md:col-start-auto md:col-span-3 min-w-0">
-                            <p className={`text-xs font-bold truncate md:whitespace-normal ${tm.text}`}>
-                              {item.escola}
-                            </p>
-                            <p className="text-[10px] text-[#10B981] font-bold mt-0.5">
-                              {item.kwhSalvo} kWh Salvos
-                            </p>
-                          </div>
-                          <div className="col-start-2 md:col-start-auto md:col-span-2 md:text-right text-lg select-none flex md:block gap-1 min-w-0">
-                            {(item.badges || []).map((badge, badgeIndex) => (
-                              <Emoji key={`${item.id}-${badgeIndex}`}>
-                                {badge}
-                              </Emoji>
-                            ))}
-                          </div>
-                          <div className="col-start-3 row-start-1 md:row-start-auto md:col-start-auto md:col-span-1 md:text-right font-black text-xs text-neon-green justify-self-end">
-                            {item.pontuacao || item.score || 0}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              <CommunityRanking
+                items={rankingComunidadeOrdenado}
+                loading={rankingsCarregando}
+                error={rankingsErro}
+                usuario={usuarioSeguro}
+                tm={tm}
+                isDark={isDark}
+              />
             )}
 
             {/* ABA: RANKING ESCOLAS */}
             {abaSelecionada === "ranking" && (
-              <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <h3
-                      className={`text-2xl font-extrabold tracking-tight ${tm.text}`}
-                    >
-                      Copa Escolar de Sustentabilidade
-                    </h3>
-                    <p className={`text-xs ${tm.textMuted}`}>
-                      Acompanhe a economia acumulada por cada colégio público
-                      estadual.
-                    </p>
-                  </div>
-                  <div
-                    className={`border min-h-[46px] px-4 py-3 rounded-2xl flex items-center justify-center gap-3 shadow-sm max-w-full text-center ${isDark ? "bg-[#111d35]/80 border-slate-800" : "bg-white border-slate-200"}`}
-                  >
-                    <Users className="text-[#10B981]" size={18} />
-                    <span
-                      className={`text-xs font-bold leading-snug ${isDark ? "text-slate-300" : "text-slate-700"}`}
-                    >
-                      Unidos pela mudança
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  className={`border rounded-[2rem] overflow-hidden shadow-2xl ${tm.card}`}
-                >
-                  <div
-                    className={`hidden md:grid grid-cols-12 gap-4 px-6 py-5 border-b text-[10px] font-extrabold tracking-widest uppercase ${isDark ? "bg-[#0B1426]/80 border-slate-800 text-slate-500" : "bg-slate-50 border-slate-200 text-slate-500"}`}
-                  >
-                    <div className="col-span-1 text-center">Pos</div>
-                    <div className="col-span-6">Unidade Escolar / Regional</div>
-                    <div className="col-span-3 text-right">Auditores</div>
-                    <div className="col-span-2 text-right">Score</div>
-                  </div>
-
-                  <div
-                    className={`divide-y ${isDark ? "divide-slate-800/60" : "divide-slate-100"}`}
-                  >
-                    {rankingsCarregando && rankingEscolasOrdenado.length === 0 ? (
-                      <div className="px-6 py-10 text-center">
-                        <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className={`text-sm font-bold ${tm.text}`}>
-                          Sincronizando escolas...
-                        </p>
-                      </div>
-                    ) : rankingEscolasOrdenado.length === 0 ? (
-                      <div className="px-6 py-10 text-center">
-                        <p className={`text-sm font-bold ${tm.text}`}>
-                          Nenhuma escola ranqueada ainda.
-                        </p>
-                      </div>
-                    ) : rankingEscolasOrdenado.map((escola, index) => {
-                      const nomeEscola = nomePublicoEscola(escola);
-                      const detalheEscola = [
-                        escola.GRE || escola.gre,
-                        escola.regiao || escola.cidade,
-                      ]
-                        .filter(Boolean)
-                        .join(" • ");
-                      return (
-                      <div
-                        key={escola.id || index}
-                        className={`grid grid-cols-[auto_1fr_auto] md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-6 items-center transition-colors duration-200 reveal-on-scroll ${nomeEscola === escolaUsuario ? (isDark ? "bg-[#10B981]/5 border-y border-[#10B981]/20" : "bg-[#10B981]/5 border-y border-[#10B981]/20") : isDark ? "hover:bg-slate-800/30" : "hover:bg-slate-50"}`}
-                      >
-                        <div className="md:col-span-1 text-center font-black text-sm row-span-2 md:row-span-1 self-start md:self-center pt-1 md:pt-0">
-                          {index === 0 ? (
-                            <span className="text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">
-                              <Emoji>{EMOJIS.ouro}</Emoji>
-                            </span>
-                          ) : index === 1 ? (
-                            <span className="text-xl">
-                              <Emoji>{EMOJIS.prata}</Emoji>
-                            </span>
-                          ) : index === 2 ? (
-                            <span className="text-lg">
-                              <Emoji>{EMOJIS.bronze}</Emoji>
-                            </span>
-                          ) : (
-                            <span className={`text-sm ${tm.textMuted}`}>
-                              {index + 1}
-                            </span>
-                          )}
-                        </div>
-                        <div className="md:col-span-6 min-w-0">
-                          <h4
-                            className={`font-bold text-xs sm:text-sm flex flex-wrap items-center gap-2 leading-snug ${tm.text}`}
-                          >
-                            {nomeEscola}
-                            {nomeEscola === escolaUsuario && (
-                              <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">
-                                Sua Escola
-                              </span>
-                            )}
-                          </h4>
-                          {detalheEscola && (
-                            <p
-                              className={`text-[10px] font-bold tracking-wider mt-1 uppercase ${tm.textMuted}`}
-                            >
-                              {detalheEscola}
-                            </p>
-                          )}
-                        </div>
-                        <div
-                          className={`col-start-2 col-span-2 md:col-start-auto md:col-span-3 md:text-right font-extrabold text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}
-                        >
-                          {escola.auditores ?? escola.alunosAtivos ?? 0}{" "}
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            auditores
-                          </span>
-                        </div>
-                        <div className="col-start-3 row-start-1 md:row-start-auto md:col-start-auto md:col-span-2 md:text-right font-black text-xs text-[#10B981] justify-self-end">
-                          {escola.scoreTotal ?? escola.totalKwhSalvo ?? 0}{" "}
-                          <span className="text-[9px] font-bold">pts</span>
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              <SchoolRanking
+                escolas={rankingEscolasOrdenado}
+                loading={rankingsCarregando}
+                escolaUsuario={escolaUsuario}
+                tm={tm}
+                isDark={isDark}
+              />
             )}
             </div>
           </main>
@@ -3640,7 +2511,7 @@ export default function App() {
                 <div className="col-span-2 text-center py-6">
                   <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                   <p className={`text-sm ${tm.textMuted}`}>
-                    Buscando aparelhos...
+                    Procurando modelos...
                   </p>
                 </div>
               ) : templatesFiltrados.length > 0 ? (
@@ -3651,7 +2522,7 @@ export default function App() {
                     className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 text-left ${isDark ? "bg-slate-900/30 border-slate-800 hover:border-[#10B981] hover:bg-slate-800/50" : "bg-slate-50 border-slate-200 hover:border-[#10B981] hover:shadow-md"}`}
                   >
                     <span className="text-3xl bg-white/5 p-2 rounded-xl border border-white/5">
-                      <Emoji>{iconeAparelhoSeguro(tpl)}</Emoji>
+                      <DeviceIcon device={tpl} />
                     </span>
                     <div>
                       <p className={`font-bold text-sm ${tm.text}`}>
@@ -3891,25 +2762,5 @@ export default function App() {
         </div>
       )}
     </div>
-  );
-}
-
-// Pequeno helper icon para a interface
-function LockIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2.5}
-      stroke="currentColor"
-      className={className}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-      />
-    </svg>
   );
 }

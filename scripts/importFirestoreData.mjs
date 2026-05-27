@@ -6,8 +6,8 @@ import {
   MISSIONS_SEED,
   SCHOOLS_SEED,
 } from "../src/data/seedData.js";
-import { calcularConsumoMensal, calcularCustoMensal } from "../src/utils/energyCalculations.js";
-import { criarIdPadronizado, criarKeywords } from "../src/utils/text.js";
+import { calcularConsumoMensal, calcularCustoMensal } from "../src/utils/calculations.js";
+import { criarIdPadronizado, criarKeywords } from "../src/utils/search.js";
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
@@ -29,8 +29,8 @@ const raw = (path, fallback) =>
   existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : fallback;
 
 const separarGRECidade = (valor = "") => {
-  const [GRE, cidade] = String(valor).split(" - ").map((parte) => parte.trim());
-  return { GRE: GRE || "", cidade: cidade || "" };
+  const [gre, cidade] = String(valor).split(" - ").map((parte) => parte.trim());
+  return { gre: gre || "", cidade: cidade || "" };
 };
 
 const normalizarEscola = (school) => {
@@ -40,12 +40,12 @@ const normalizarEscola = (school) => {
       : { ...school, ...separarGRECidade(school.regional || school.GRE || school.gre) };
   const nome = String(local.nome || local.name || "").trim();
   const id = school.id || criarIdPadronizado(nome.replace(/^CETI\s+/i, ""), "ceti");
-  const GRE = local.GRE || local.gre || "";
+  const gre = local.gre || local.GRE || "";
 
   return {
     id,
     nome,
-    GRE,
+    gre,
     cidade: local.cidade,
     regiao: local.regiao || "",
     tipo: local.tipo || "CETI",
@@ -54,7 +54,7 @@ const normalizarEscola = (school) => {
     keywords: criarKeywords(
       nome,
       nome.replace(/^CETI\s+/i, ""),
-      GRE,
+      gre,
       local.cidade,
       local.regiao,
     ),
@@ -74,10 +74,11 @@ const normalizarDevice = (device) => {
   const categoria = device.categoria || "Tecnologia";
   const potencia = numero(device.potencia, 0);
   const usoHorasDia = numero(device.usoHorasDia ?? device.horasDia, 1);
+  const diasPorSemana = numero(device.diasPorSemana, 7);
   const consumoMensal = calcularConsumoMensal({
     potencia,
     usoHorasDia,
-    diasPorSemana: 7,
+    diasPorSemana,
     quantidade: 1,
   });
 
@@ -88,6 +89,7 @@ const normalizarDevice = (device) => {
     categoria,
     potencia,
     usoHorasDia,
+    diasPorSemana,
     consumoMensal,
     custoMensal: calcularCustoMensal(consumoMensal),
     keywords: criarKeywords(nome, categoria, String(potencia)),
@@ -105,7 +107,7 @@ const gravarColecao = async (collectionName, items) => {
 };
 
 const schools = raw("src/data/schools.json", SCHOOLS_SEED).map(normalizarEscola);
-const devices = raw("data/devices.json", DEVICES_SEED).map(normalizarDevice);
+const devices = raw("src/data/devices.json", DEVICES_SEED).map(normalizarDevice);
 const missions = raw("data/missions.json", MISSIONS_SEED);
 
 await gravarColecao("schools", schools);

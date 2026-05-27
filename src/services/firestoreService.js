@@ -16,15 +16,15 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { db } from "./firebase";
 import {
   DEVICES_SEED,
   MISSIONS_SEED,
   RANKING_ESCOLAS_SEED,
   SCHOOLS_SEED,
 } from "../data/seedData";
-import { normalizarUsoAparelho } from "../utils/energyCalculations";
-import { criarKeywords, normalizarBusca, pontuarBusca } from "../utils/text";
+import { normalizarUsoAparelho } from "../utils/calculations";
+import { criarKeywords, normalizarBusca, pontuarBusca } from "../utils/search";
 
 const RANKING_REFRESH_MS = 10 * 60 * 1000;
 const RANKINGS_STORAGE_KEY = "energiapi:rankings-cache";
@@ -55,7 +55,7 @@ const normalizarTipoUsuario = (tipo) => {
 const escolaIdPareceSlug = (valor = "") =>
   /^ceti_[a-z0-9_]+$/i.test(String(valor).trim());
 
-const ESCOLA_SEM_NOME = "Escola sem nome";
+const ESCOLA_EM_VALIDACAO = "CETI em validação";
 
 const escolasSeedPorId = new Map(
   SCHOOLS_SEED.map((school) => [school.id, school]),
@@ -64,7 +64,7 @@ const escolasSeedPorId = new Map(
 const campoTextoValido = (valor = "") => {
   const texto = String(valor || "").trim();
   if (!texto) return "";
-  if (texto.toLowerCase() === ESCOLA_SEM_NOME.toLowerCase()) return "";
+  if (texto.toLowerCase() === "escola sem nome") return "";
   if (escolaIdPareceSlug(texto)) return "";
   return texto;
 };
@@ -110,11 +110,11 @@ const obterNomeEscola = (school = {}) => {
   if (seed?.nome) return seed.nome;
 
   const nomeSlug = nomeAPartirSlugEscola(idEscola || camposPossiveis.find(Boolean));
-  return nomeSlug || ESCOLA_SEM_NOME;
+  return nomeSlug || ESCOLA_EM_VALIDACAO;
 };
 
 const normalizarEscola = (school = {}) => {
-  const GRE = school.GRE || school.gre || "";
+  const gre = school.gre || school.GRE || "";
   const id = obterIdEscola(school);
   const nome = obterNomeEscola(school);
   const auditores = Number(
@@ -140,8 +140,7 @@ const normalizarEscola = (school = {}) => {
     nome,
     escolaNome: campoTextoValido(school.escolaNome) || nome,
     escola: campoTextoValido(school.escola) || campoTextoValido(school.school) || nome,
-    GRE,
-    gre: GRE,
+    gre,
     cidade: school.cidade || school.municipio || "",
     regiao: school.regiao || "",
     auditores,
@@ -153,7 +152,7 @@ const normalizarEscola = (school = {}) => {
 
 const normalizarListaEscolas = (lista = [], fallback = RANKING_ESCOLAS_SEED) => {
   const normalizadas = fallbackQuandoVazio(lista, fallback).map(normalizarEscola);
-  const temNomesReais = normalizadas.some((school) => school.nome !== ESCOLA_SEM_NOME);
+  const temNomesReais = normalizadas.some((school) => school.nome !== ESCOLA_EM_VALIDACAO);
   return temNomesReais ? normalizadas : fallback.map(normalizarEscola);
 };
 
@@ -170,9 +169,12 @@ const normalizarRankingComunidade = (perfil = {}) => {
   const score = Number(perfil.score || perfil.pontuacao || 0);
   return {
     ...perfil,
-    nome: perfil.nome || "Auditor EnergiaPI",
+    nome: perfil.nome || "Participante EnergiaPI",
     perfil: perfil.perfil || (perfil.tipoUsuario === "morador" ? "Morador" : "Estudante"),
-    escola: perfil.escola || perfil.escolaNome || (perfil.tipoUsuario === "morador" ? "Comunidade" : "CETI"),
+    escola:
+      perfil.escola ||
+      perfil.escolaNome ||
+      (perfil.tipoUsuario === "morador" ? "Comunidade" : "CETI em validação"),
     pontuacao: score,
     score,
     kwhSalvo: Number(perfil.kwhSalvo || 0),
@@ -249,7 +251,7 @@ const normalizarPerfilUsuario = (perfil = {}, uidFallback = "") => {
   const tipoUsuario = normalizarTipoUsuario(perfil.tipoUsuario);
   const onboardingCompleto =
     perfil.onboardingCompleto ?? Boolean(tipoUsuario);
-  const GRE = perfil.GRE || perfil.gre || "";
+  const gre = perfil.gre || perfil.GRE || "";
 
   return {
     ...perfil,
@@ -264,8 +266,7 @@ const normalizarPerfilUsuario = (perfil = {}, uidFallback = "") => {
     onboardingCompleto: Boolean(onboardingCompleto),
     escolaId: tipoUsuario === "estudante" ? perfil.escolaId || "" : "",
     escolaNome: tipoUsuario === "estudante" ? perfil.escolaNome || "" : "",
-    GRE: tipoUsuario === "estudante" ? GRE : "",
-    gre: tipoUsuario === "estudante" ? GRE : "",
+    gre: tipoUsuario === "estudante" ? gre : "",
     endereco: perfil.endereco || "",
     numero: perfil.numero || "",
     cidade: perfil.cidade || "",
@@ -350,13 +351,16 @@ const montarCommunityProfile = (perfil) => {
 
   return {
     uid: perfil.uid,
-    nome: perfil.nome || "Auditor EnergiaPI",
+    nome: perfil.nome || "Participante EnergiaPI",
     perfil: tipoUsuario === "morador" ? "Morador" : "Estudante",
     tipoUsuario,
     escolaId: tipoUsuario === "estudante" ? perfil.escolaId || "" : "",
-    escola: tipoUsuario === "estudante" ? perfil.escolaNome || "CETI" : "Comunidade",
+    escola:
+      tipoUsuario === "estudante"
+        ? perfil.escolaNome || "CETI em validação"
+        : "Comunidade",
     escolaNome: tipoUsuario === "estudante" ? perfil.escolaNome || "" : "",
-    GRE: tipoUsuario === "estudante" ? perfil.GRE || perfil.gre || "" : "",
+    gre: tipoUsuario === "estudante" ? perfil.gre || perfil.GRE || "" : "",
     pontuacao: score,
     score,
     kwhSalvo: Number(perfil.kwhSalvo || 0),
@@ -372,14 +376,14 @@ export const montarUserProfile = (firebaseUser, perfil = {}) => {
 
   return {
     uid: firebaseUser.uid,
-    nome: perfil.nome || firebaseUser.displayName || "Auditor EnergiaPI",
+    nome: perfil.nome || firebaseUser.displayName || "Participante EnergiaPI",
     email: (perfil.email || firebaseUser.email || "").toLowerCase(),
     tipoUsuario,
     authProvider: perfil.authProvider || "password",
     onboardingCompleto: Boolean(perfil.onboardingCompleto),
     escolaId: estudante ? perfil.escolaId || "" : "",
     escolaNome: estudante ? perfil.escolaNome || perfil.escola || "" : "",
-    GRE: estudante ? perfil.GRE || perfil.gre || "" : "",
+    gre: estudante ? perfil.gre || perfil.GRE || "" : "",
     endereco: perfil.endereco || "",
     numero: perfil.numero || "",
     cidade: perfil.cidade || "",
@@ -401,14 +405,14 @@ export const getUserProfile = async (uid) => {
 
 const montarPendingUserProfile = (firebaseUser, perfil = {}) => ({
   uid: firebaseUser.uid,
-  nome: perfil.nome || firebaseUser.displayName || "Auditor EnergiaPI",
+  nome: perfil.nome || firebaseUser.displayName || "Participante EnergiaPI",
   email: (perfil.email || firebaseUser.email || "").toLowerCase(),
   authProvider: perfil.authProvider || "google",
   tipoUsuario: "",
   onboardingCompleto: false,
   escolaId: "",
   escolaNome: "",
-  GRE: "",
+  gre: "",
   endereco: "",
   numero: "",
   cidade: "",
@@ -460,6 +464,10 @@ export const completeUserOnboarding = async (firebaseUser, perfil) => {
       payload.tipoUsuario === "estudante" &&
       payload.escolaId &&
       (!anterior?.onboardingCompleto || anterior.escolaId !== payload.escolaId);
+    const schoolRef = mudouParaEstudante
+      ? doc(db, "schools", payload.escolaId)
+      : null;
+    const schoolSnap = schoolRef ? await transaction.get(schoolRef) : null;
 
     transaction.set(
       userRef,
@@ -472,16 +480,15 @@ export const completeUserOnboarding = async (firebaseUser, perfil) => {
 
     transaction.set(communityRef, montarCommunityProfile(payload), { merge: true });
 
-    if (mudouParaEstudante) {
-      transaction.set(
-        doc(db, "schools", payload.escolaId),
+    if (mudouParaEstudante && schoolSnap?.exists()) {
+      transaction.update(
+        schoolRef,
         {
           auditores: increment(1),
           scoreTotal: increment(0),
           impactoKwhTotal: increment(0),
           updatedAt: serverTimestamp(),
         },
-        { merge: true },
       );
     }
   });
@@ -522,6 +529,11 @@ export const addUserScore = async (uid, pontos, options = {}) => {
     if (!snap.exists()) return;
 
     const atual = normalizarPerfilUsuario(snap.data(), uid);
+    const schoolRef =
+      atual.tipoUsuario === "estudante" && atual.escolaId
+        ? doc(db, "schools", atual.escolaId)
+        : null;
+    const schoolSnap = schoolRef ? await transaction.get(schoolRef) : null;
     const novoScore = Number(atual.score || 0) + pontosNumericos;
     const novoKwh = Number(atual.kwhSalvo || 0) + impactoKwh;
     const patch = {
@@ -529,7 +541,7 @@ export const addUserScore = async (uid, pontos, options = {}) => {
       onboardingCompleto: true,
       escolaId: atual.escolaId || "",
       escolaNome: atual.escolaNome || "",
-      GRE: atual.GRE || "",
+      gre: atual.gre || atual.GRE || "",
       endereco: atual.endereco || "",
       numero: atual.numero || "",
       cidade: atual.cidade || "",
@@ -544,16 +556,15 @@ export const addUserScore = async (uid, pontos, options = {}) => {
 
     transaction.set(userRef, patch, { merge: true });
 
-    if (atual.tipoUsuario === "estudante" && atual.escolaId) {
-      transaction.set(
-        doc(db, "schools", atual.escolaId),
+    if (schoolSnap?.exists()) {
+      transaction.update(
+        schoolRef,
         {
           auditores: increment(0),
           scoreTotal: increment(pontosNumericos),
           impactoKwhTotal: increment(impactoKwh),
           updatedAt: serverTimestamp(),
         },
-        { merge: true },
       );
     }
 
@@ -598,7 +609,7 @@ export const searchSchools = async ({ termo = "", max = 8 } = {}) => {
     if (termoNormalizado) {
       lista = ordenarPorScoreBusca(lista, termoNormalizado, [
         "nome",
-        "GRE",
+        "gre",
         "cidade",
         "regiao",
       ]);
@@ -611,7 +622,7 @@ export const searchSchools = async ({ termo = "", max = 8 } = {}) => {
     if (termoNormalizado) {
       lista = ordenarPorScoreBusca(lista, termoNormalizado, [
         "nome",
-        "GRE",
+        "gre",
         "cidade",
         "regiao",
       ]);
@@ -915,14 +926,13 @@ export const subscribeRankings = (callback) => {
 
 export const normalizeSchoolForImport = (school) => {
   const nome = obterNomeEscola(school);
-  const GRE = school.GRE || school.gre || "";
+  const gre = school.gre || school.GRE || "";
   const cidade = school.cidade || school.municipio || "";
   const regiao = school.regiao || "";
   return {
     id: obterIdEscola(school) || criarKeywords(nome)[0]?.replace(/\s+/g, "_"),
     nome,
-    escolaNome: campoTextoValido(school.escolaNome) || nome,
-    GRE,
+    gre,
     cidade,
     regiao,
     tipo: school.tipo || "CETI",
@@ -945,7 +955,7 @@ export const normalizeSchoolForImport = (school) => {
     ),
     keywords:
       school.keywords ||
-      criarKeywords(nome, nome.replace(/^CETI\s+/i, ""), GRE, cidade, regiao),
+      criarKeywords(nome, nome.replace(/^CETI\s+/i, ""), gre, cidade, regiao),
   };
 };
 

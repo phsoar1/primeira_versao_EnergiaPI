@@ -3,7 +3,7 @@ import {
   setUserMissionProgress,
   subscribeMissions,
   subscribeUserMissionProgress,
-} from "../services/firestoreService";
+} from "../services/missionService";
 
 const trilhaPorThreshold = (threshold) => {
   if (threshold >= 900) return "Elite";

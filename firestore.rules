@@ -43,7 +43,7 @@ service cloud.firestore {
         && request.resource.data.kwhSalvo == 0
         && request.resource.data.escolaId == ''
         && request.resource.data.escolaNome == ''
-        && request.resource.data.GRE == ''
+        && request.resource.data.gre == ''
         && validAddress();
     }
 
@@ -57,14 +57,14 @@ service cloud.firestore {
       return request.resource.data.tipoUsuario == 'estudante'
         && request.resource.data.escolaId is string
         && request.resource.data.escolaNome is string
-        && request.resource.data.GRE is string;
+        && request.resource.data.gre is string;
     }
 
     function validMoradorFields() {
       return request.resource.data.tipoUsuario == 'morador'
         && request.resource.data.escolaId == ''
         && request.resource.data.escolaNome == ''
-        && request.resource.data.GRE == '';
+        && request.resource.data.gre == '';
     }
 
     function userCannotChangeIdentity() {
@@ -128,7 +128,7 @@ service cloud.firestore {
         && request.resource.data.kwhSalvo == ownUserAfter().data.kwhSalvo
         && request.resource.data.escolaId is string
         && request.resource.data.escolaNome is string
-        && request.resource.data.GRE is string;
+        && request.resource.data.gre is string;
     }
 
     function validSchoolAggregateUpdate(schoolId) {

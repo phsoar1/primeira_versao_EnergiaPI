@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { CheckCircle, Search, School, X } from "lucide-react";
 import { useSchoolSearch } from "../../hooks/useCatalogSearch";
 
-const getGRE = (school) => school?.GRE || school?.gre || "";
+const getGre = (school) => school?.gre || school?.GRE || "";
 const getSchoolMeta = (school) =>
-  [getGRE(school), school?.regiao || school?.cidade].filter(Boolean).join(" • ");
+  [getGre(school), school?.regiao || school?.cidade].filter(Boolean).join(" • ");
 const fallbackTheme = {
   modal:
     "bg-[#111d35]/95 backdrop-blur-2xl border-slate-700/50 shadow-2xl",
@@ -65,8 +65,7 @@ export default function SchoolSearchPicker({
   const selecionarEscola = (school) => {
     onSelect?.({
       ...school,
-      GRE: getGRE(school),
-      gre: getGRE(school),
+      gre: getGre(school),
     });
     closeModal();
   };
@@ -128,7 +127,7 @@ export default function SchoolSearchPicker({
             >
               <div className="w-8 h-8 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className={`text-xs font-bold ${theme.textMuted}`}>
-                Buscando CETIs...
+                Procurando CETIs...
               </p>
             </div>
           ) : items.length > 0 ? (

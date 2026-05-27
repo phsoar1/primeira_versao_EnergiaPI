@@ -2,7 +2,9 @@ import {
   calcularConsumoMensal,
   calcularCustoMensal,
 } from "../utils/energyCalculations.js";
-import { criarIdPadronizado, criarKeywords } from "../utils/text.js";
+import { iconeAparelhoSeguro } from "../utils/formatters.js";
+import { criarIdPadronizado, criarKeywords } from "../utils/search.js";
+import devicesJson from "./devices.json" with { type: "json" };
 import schoolsJson from "./schools.json" with { type: "json" };
 
 export const CATEGORIAS_APARELHOS = [
@@ -43,103 +45,56 @@ export const GRE_OPTIONS = [
 
 export const SCHOOLS_SEED = schoolsJson.map((school) => {
   const nome = school.nome;
-  const GRE = school.GRE || school.gre || "";
+  const gre = school.gre || school.GRE || "";
   const cidade = school.cidade || "";
   const regiao = school.regiao || "";
   const id = school.id || criarIdPadronizado(nome.replace(/^CETI\s+/i, ""), "ceti");
   return {
     id,
     nome,
-    GRE,
-    gre: GRE,
+    gre,
     cidade,
     regiao,
     auditores: Number(school.auditores || 0),
     scoreTotal: Number(school.scoreTotal || 0),
     tipo: "CETI",
-    keywords: criarKeywords(nome, nome.replace(/^CETI\s+/i, ""), GRE, cidade, regiao),
+    keywords: criarKeywords(nome, nome.replace(/^CETI\s+/i, ""), gre, cidade, regiao),
   };
 });
 
-const devicesBase = [
-  ["Geladeira Frost-Free", "🧊", "Cozinha", 150, 24, 7],
-  ["Chuveiro Elétrico", "🚿", "Banheiro", 4500, 0.5, 7],
-  ["Ar-condicionado 9000 BTUs", "❄️", "Climatização", 1200, 6, 7],
-  ['Televisor LED 50"', "📺", "Lazer", 100, 5, 7],
-  ["Ventilador de Coluna", "🌀", "Climatização", 80, 8, 7],
-  ["Máquina de Lavar", "🧺", "Lavanderia", 500, 1, 3],
-  ["Forno Micro-ondas", "🍽️", "Cozinha", 1200, 0.3, 7],
-  ["Computador Desktop", "🖥️", "Tecnologia", 300, 4, 7],
-  ["Ferro de Passar Roupas", "🔌", "Lavanderia", 1500, 0.5, 3],
-  ["Lâmpada Incandescente 60W", "💡", "Iluminação", 60, 5, 7],
-  ["Lâmpada LED 9W", "💡", "Iluminação", 9, 5, 7],
-  ["Forno Elétrico", "🔥", "Cozinha", 1500, 0.4, 3],
-  ["Air Fryer", "🍟", "Cozinha", 1400, 0.5, 5],
-  ["Freezer Horizontal", "🧊", "Cozinha", 220, 24, 7],
-  ["Notebook", "💻", "Tecnologia", 65, 6, 7],
-  ["Roteador Wi-Fi", "📡", "Tecnologia", 12, 24, 7],
-  ["Câmera de Segurança", "📹", "Segurança", 10, 24, 7],
-  ["Bomba d'água", "💧", "Ferramentas", 370, 1, 4],
-  ["Liquidificador", "🥤", "Cozinha", 600, 0.15, 5],
-  ["Aspirador de Pó", "🧹", "Ferramentas", 1200, 0.4, 2],
-];
+export const DEVICES_SEED = devicesJson.map((device) => {
+  const nome = String(device.nome || "").trim();
+  const categoria = device.categoria || "Tecnologia";
+  const potencia = Number(device.potencia || 0);
+  const usoHorasDia = Number(device.usoHorasDia ?? device.horasDia ?? 1);
+  const diasPorSemana = Number(device.diasPorSemana || 7);
+  const consumoMensal = calcularConsumoMensal({
+    potencia,
+    usoHorasDia,
+    diasPorSemana,
+    quantidade: 1,
+  });
+  const emoji = iconeAparelhoSeguro(device);
 
-const normalizarNomeIconeAparelho = (valor) =>
-  String(valor || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const emojiSeguroAparelho = (nome, fallback = "\u26A1") => {
-  const nomeNormalizado = normalizarNomeIconeAparelho(nome);
-  if (nomeNormalizado.includes("ar-condicionado") || nomeNormalizado.includes("ar condicionado")) return "\u2744\uFE0F";
-  if (nomeNormalizado.includes("geladeira") || nomeNormalizado.includes("freezer")) return "\u{1F9CA}";
-  if (nomeNormalizado.includes("chuveiro")) return "\u{1F6BF}";
-  if (nomeNormalizado.includes("televisor") || nomeNormalizado.includes("tv")) return "\u{1F4FA}";
-  if (nomeNormalizado.includes("ventilador")) return "\u{1F300}";
-  if (nomeNormalizado.includes("maquina de lavar")) return "\u{1F9FA}";
-  if (nomeNormalizado.includes("micro-ondas") || nomeNormalizado.includes("microondas")) return "\u{1F37D}\uFE0F";
-  if (nomeNormalizado.includes("computador")) return "\u{1F5A5}\uFE0F";
-  if (nomeNormalizado.includes("notebook")) return "\u{1F4BB}";
-  if (nomeNormalizado.includes("ferro de passar")) return "\u{1F50C}";
-  if (nomeNormalizado.includes("lampada")) return "\u{1F4A1}";
-  if (nomeNormalizado.includes("forno eletrico") || nomeNormalizado.includes("air fryer")) return "\u{1F525}";
-  if (nomeNormalizado.includes("roteador")) return "\u{1F4F6}";
-  if (nomeNormalizado.includes("camera")) return "\u{1F4F9}";
-  if (nomeNormalizado.includes("bomba")) return "\u{1F4A7}";
-  if (nomeNormalizado.includes("liquidificador")) return "\u{1F964}";
-  if (nomeNormalizado.includes("aspirador")) return "\u{1F9F9}";
-  return fallback;
-};
-
-export const DEVICES_SEED = devicesBase.map(
-  ([nome, emoji, categoria, potencia, usoHorasDia, diasPorSemana]) => {
-    const consumoMensal = calcularConsumoMensal({
-      potencia,
-      usoHorasDia,
-      diasPorSemana,
-      quantidade: 1,
-    });
-
-    return {
-      id: criarIdPadronizado(nome),
+  return {
+    id: device.id || criarIdPadronizado(nome),
+    nome,
+    emoji,
+    icone: emoji,
+    categoria,
+    potencia,
+    usoHorasDia,
+    diasPorSemana,
+    consumoMensal,
+    custoMensal: calcularCustoMensal(consumoMensal),
+    keywords: criarKeywords(
       nome,
-      emoji: emojiSeguroAparelho(nome, emoji),
-      icone: emojiSeguroAparelho(nome, emoji),
       categoria,
-      potencia,
-      usoHorasDia,
-      consumoMensal,
-      custoMensal: calcularCustoMensal(consumoMensal),
-      keywords: criarKeywords(
-        nome,
-        categoria,
-        String(potencia),
-        nome.split(" ")[0],
-      ),
-    };
-  },
-);
+      String(potencia),
+      nome.split(" ")[0],
+    ),
+  };
+});
 
 export const MISSIONS_SEED = [
   {
@@ -259,41 +214,8 @@ export const RANKING_ESCOLAS_SEED = SCHOOLS_SEED.map((school) => ({
   id: school.id,
   nome: school.nome,
   cidade: school.cidade,
-  GRE: school.GRE,
-  gre: school.GRE,
+  gre: school.gre,
   regiao: school.regiao,
   auditores: school.auditores,
-  alunosAtivos: school.auditores,
   scoreTotal: school.scoreTotal,
-  totalKwhSalvo: school.scoreTotal,
 }));
-
-export const RANKING_COMUNIDADE_SEED = [
-  {
-    id: "demo_luis",
-    nome: "Luis Felipe Soares",
-    perfil: "Estudante",
-    escola: "CETI Didácio Silva",
-    pontuacao: 450,
-    kwhSalvo: 185,
-    badges: ["🌱", "🌍", "⚡"],
-  },
-  {
-    id: "demo_jamylle",
-    nome: "Jamylle Maria França",
-    perfil: "Estudante",
-    escola: "CETI Didácio Silva",
-    pontuacao: 420,
-    kwhSalvo: 170,
-    badges: ["🌱", "💰", "⚡"],
-  },
-  {
-    id: "demo_carlos",
-    nome: "Carlos Eduardo Santos",
-    perfil: "Morador",
-    escola: "Nenhuma",
-    pontuacao: 390,
-    kwhSalvo: 158,
-    badges: ["🌱", "🌍"],
-  },
-];

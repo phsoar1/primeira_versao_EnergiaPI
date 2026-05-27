@@ -1,0 +1,182 @@
+[
+  {
+    "id": "geladeira_frost_free",
+    "nome": "Geladeira Frost-Free",
+    "emoji": "🧊",
+    "categoria": "Cozinha",
+    "potencia": 150,
+    "usoHorasDia": 24,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "chuveiro_eletrico",
+    "nome": "Chuveiro Elétrico",
+    "emoji": "🚿",
+    "categoria": "Banheiro",
+    "potencia": 4500,
+    "usoHorasDia": 0.5,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "ar_condicionado_9000_btus",
+    "nome": "Ar-condicionado 9000 BTUs",
+    "emoji": "❄️",
+    "categoria": "Climatização",
+    "potencia": 1200,
+    "usoHorasDia": 6,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "televisor_led_50",
+    "nome": "Televisor LED 50\"",
+    "emoji": "📺",
+    "categoria": "Lazer",
+    "potencia": 100,
+    "usoHorasDia": 5,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "ventilador_de_coluna",
+    "nome": "Ventilador de Coluna",
+    "emoji": "🌀",
+    "categoria": "Climatização",
+    "potencia": 80,
+    "usoHorasDia": 8,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "maquina_de_lavar",
+    "nome": "Máquina de Lavar",
+    "emoji": "🧺",
+    "categoria": "Lavanderia",
+    "potencia": 500,
+    "usoHorasDia": 1,
+    "diasPorSemana": 3
+  },
+  {
+    "id": "forno_micro_ondas",
+    "nome": "Forno Micro-ondas",
+    "emoji": "🍽️",
+    "categoria": "Cozinha",
+    "potencia": 1200,
+    "usoHorasDia": 0.3,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "computador_desktop",
+    "nome": "Computador Desktop",
+    "emoji": "🖥️",
+    "categoria": "Tecnologia",
+    "potencia": 300,
+    "usoHorasDia": 4,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "ferro_de_passar_roupas",
+    "nome": "Ferro de Passar Roupas",
+    "emoji": "🔌",
+    "categoria": "Lavanderia",
+    "potencia": 1500,
+    "usoHorasDia": 0.5,
+    "diasPorSemana": 3
+  },
+  {
+    "id": "lampada_incandescente_60w",
+    "nome": "Lâmpada Incandescente 60W",
+    "emoji": "💡",
+    "categoria": "Iluminação",
+    "potencia": 60,
+    "usoHorasDia": 5,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "lampada_led_9w",
+    "nome": "Lâmpada LED 9W",
+    "emoji": "💡",
+    "categoria": "Iluminação",
+    "potencia": 9,
+    "usoHorasDia": 5,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "forno_eletrico",
+    "nome": "Forno Elétrico",
+    "emoji": "🔥",
+    "categoria": "Cozinha",
+    "potencia": 1500,
+    "usoHorasDia": 0.4,
+    "diasPorSemana": 3
+  },
+  {
+    "id": "air_fryer",
+    "nome": "Air Fryer",
+    "emoji": "🔥",
+    "categoria": "Cozinha",
+    "potencia": 1400,
+    "usoHorasDia": 0.5,
+    "diasPorSemana": 5
+  },
+  {
+    "id": "freezer_horizontal",
+    "nome": "Freezer Horizontal",
+    "emoji": "🧊",
+    "categoria": "Cozinha",
+    "potencia": 220,
+    "usoHorasDia": 24,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "notebook",
+    "nome": "Notebook",
+    "emoji": "💻",
+    "categoria": "Tecnologia",
+    "potencia": 65,
+    "usoHorasDia": 6,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "roteador_wi_fi",
+    "nome": "Roteador Wi-Fi",
+    "emoji": "📶",
+    "categoria": "Tecnologia",
+    "potencia": 12,
+    "usoHorasDia": 24,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "camera_de_seguranca",
+    "nome": "Câmera de Segurança",
+    "emoji": "📹",
+    "categoria": "Segurança",
+    "potencia": 10,
+    "usoHorasDia": 24,
+    "diasPorSemana": 7
+  },
+  {
+    "id": "bomba_de_agua",
+    "nome": "Bomba d'água",
+    "emoji": "💧",
+    "categoria": "Ferramentas",
+    "potencia": 370,
+    "usoHorasDia": 1,
+    "diasPorSemana": 4
+  },
+  {
+    "id": "liquidificador",
+    "nome": "Liquidificador",
+    "emoji": "🥤",
+    "categoria": "Cozinha",
+    "potencia": 600,
+    "usoHorasDia": 0.15,
+    "diasPorSemana": 5
+  },
+  {
+    "id": "aspirador_de_po",
+    "nome": "Aspirador de Pó",
+    "emoji": "🧹",
+    "categoria": "Ferramentas",
+    "potencia": 1200,
+    "usoHorasDia": 0.4,
+    "diasPorSemana": 2
+  }
+]

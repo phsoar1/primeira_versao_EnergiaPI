@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { subscribeRankings } from "../services/firestoreService";
+import { subscribeRankings } from "../services/rankingService";
 
 export const useRankings = () => {
   const [rankings, setRankings] = useState({

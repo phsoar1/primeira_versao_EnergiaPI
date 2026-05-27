@@ -4,7 +4,7 @@ import {
   removeUserDevice,
   subscribeUserDevices,
   updateUserDevice,
-} from "../services/firestoreService";
+} from "../services/deviceService";
 
 export const useUserDevices = (uid) => {
   const [devices, setDevices] = useState([]);

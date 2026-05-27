@@ -18,7 +18,7 @@
 {
   "id": "ceti_joao_henrique_almeida_sousa",
   "nome": "CETI João Henrique de Almeida Sousa",
-  "GRE": "19ª GRE",
+  "gre": "19ª GRE",
   "cidade": "Teresina",
   "regiao": "Teresina Sul",
   "auditores": 0,
@@ -41,7 +41,7 @@
   "onboardingCompleto": true,
   "escolaId": "",
   "escolaNome": "",
-  "GRE": "",
+  "gre": "",
   "endereco": "",
   "numero": "",
   "cidade": "",
@@ -56,7 +56,7 @@
 }
 ```
 
-For moradores, `tipoUsuario` is `morador` and `escolaId`, `escolaNome` and `GRE` are empty strings.
+For moradores, `tipoUsuario` is `morador` and `escolaId`, `escolaNome` and `gre` are empty strings.
 
 ## Ranking Flow
 
@@ -92,14 +92,14 @@ $env:GOOGLE_APPLICATION_CREDENTIALS="C:\path\service-account.json"
 npm run import:firestore
 ```
 
-The importer standardizes `GRE`, `regiao`, counters, timestamps and search keywords.
+The importer standardizes `gre`, `regiao`, counters, timestamps and search keywords.
 
 ## Onboarding Video
 
 Add the institutional video here:
 
 ```txt
-public/videos/energia-pi-institucional.mp4
+public/videos/intro.mp4
 ```
 
 Component:

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, CheckCircle, Home, Loader2, LogOut, MapPin } from "lucide-react";
 import SchoolSearchPicker from "../schools/SchoolSearchPicker";
 
-const VIDEO_SRC = "/videos/demo.mp4";
+const VIDEO_SRC = "/videos/intro.mp4";
 
 const apenasNumeros = (valor) => String(valor || "").replace(/\D/g, "");
 
@@ -48,7 +48,7 @@ function InstitutionalVideo() {
               EnergiaPI
             </p>
             <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Demonstração em breve
+              Vídeo institucional em preparação
             </p>
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
         const dados = await resposta.json();
         if (dados.erro) {
           setCepStatus("erro");
-          setCepMensagem("CEP nao encontrado.");
+          setCepMensagem("CEP não encontrado.");
           return;
         }
 
@@ -126,7 +126,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
       } catch (error) {
         if (error.name === "AbortError") return;
         setCepStatus("erro");
-        setCepMensagem("Nao foi possivel consultar o CEP agora.");
+        setCepMensagem("Não foi possível consultar o CEP agora.");
       }
     }, 420);
 
@@ -146,7 +146,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
         tipoUsuario,
         escolaId: estudante ? school.id : "",
         escolaNome: estudante ? school.nome : "",
-        GRE: estudante ? school.GRE || school.gre || "" : "",
+        gre: estudante ? school.gre || school.GRE || "" : "",
         endereco: montarEndereco({ bairro, numero, cidade, estado, cep }),
         numero,
         cidade,
@@ -177,7 +177,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
         <div className="space-y-5 animate-fade-in-scale">
           <InstitutionalVideo />
           <p className="text-sm leading-relaxed text-slate-300 md:text-base">
-            Bem-vindo à Energia PI. Somos especialistas em soluções inteligentes de energia, comprometidos em entregar economia, sustentabilidade e eficiência para a sua casa ou empresa.
+            Bem-vindo ao EnergiaPI. Este espaço conecta estudantes, CETIs e moradores em ações simples de educação energética para reduzir desperdícios no Piauí.
           </p>
         </div>
 
@@ -190,7 +190,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
               Você é um estudante ou morador?
             </h1>
             <p className="mt-1 text-xs font-medium leading-relaxed text-slate-400">
-              {usuario?.nome || "Auditor EnergiaPI"}
+              {usuario?.nome || "Perfil em configuração"}
             </p>
           </div>
 
@@ -289,7 +289,7 @@ export default function OnboardingGate({ usuario, onSubmit, onLogout, isDark, tm
           </button>
 
           <p className="mt-5 text-xs leading-relaxed text-slate-400">
-            Com tecnologia de ponta e uma equipe altamente qualificada, transformamos o potencial energético do Piauí em resultados reais e seguros para você. Descubra como podemos otimizar o seu consumo com total transparência.
+            Seus dados ajudam a organizar diagnósticos, missões e rankings com foco em consumo consciente, sustentabilidade e participação das escolas estaduais.
           </p>
         </div>
       </form>
