@@ -1622,17 +1622,21 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col justify-between antialiased selection:bg-[#10B981] selection:text-white transition-colors duration-500 ${tm.bg} ${tm.text}`}
+      className={`h-screen flex flex-col overflow-hidden antialiased selection:bg-[#10B981] selection:text-white transition-colors duration-500 ${tm.bg} ${tm.text}`}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
         html, body, #root {
-          overscroll-behavior-y: contain;
-          overflow-x: hidden;
+          height: 100%;
+          overflow: hidden;
+          overscroll-behavior: none;
           max-width: 100%;
         }
-        body { touch-action: manipulation; }
+        body {
+          touch-action: manipulation;
+          -webkit-text-size-adjust: 100%;
+        }
         .text-neon-green { color: #10B981; }
         .gpu-smooth {
           transform: translateZ(0);
@@ -1677,9 +1681,7 @@ export default function App() {
         .ios-scroll {
           -webkit-overflow-scrolling: touch;
           scroll-behavior: smooth;
-          overscroll-behavior: contain;
-          will-change: scroll-position;
-          transform: translateZ(0);
+          overscroll-behavior-y: contain;
         }
         input[type="range"] {
           touch-action: none;
@@ -1802,7 +1804,7 @@ export default function App() {
       )}
 
       {authCarregando || bloqueandoRenderCadastroEmail ? (
-        <div className="flex-1 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative">
+        <div className="flex-1 min-h-0 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative overflow-y-auto">
           <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-4">
             <div className="flex flex-col items-center gap-4">
               <LogoEnergiaPI size={72} className="mb-2" />
@@ -1816,7 +1818,7 @@ export default function App() {
           </div>
         </div>
       ) : !autenticado ? (
-        <div className="flex-1 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative scroll-custom overflow-y-auto">
+        <div className="flex-1 min-h-0 flex items-center justify-center p-4 md:p-8 mesh-gradient-auth relative scroll-custom overflow-y-auto">
           <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-4">
             <div className="flex flex-col items-center mb-6">
               <LogoEnergiaPI size={72} className="mb-4" />
@@ -2098,7 +2100,7 @@ export default function App() {
         />
       ) : (
         /* INTERFACE LOGADA DO AUDITOR */
-        <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* HEADER PRINCIPAL */}
           <header
             className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-300 ${tm.header}`}
@@ -2293,10 +2295,11 @@ export default function App() {
           {/* CONTEÚDO PRINCIPAL */}
           <main
             data-app-scroll-root="true"
-            className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-12 scroll-custom ios-scroll overflow-y-auto touch-pan-y gpu-smooth"
+            className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden scroll-custom ios-scroll touch-pan-y gpu-smooth"
             onTouchStart={handleSwipeStart}
             onTouchEnd={handleSwipeEnd}
           >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-12">
             {/* ABA: RESUMO / DASHBOARD */}
             {abaSelecionada === "dashboard" && (
               <div className="space-y-8 animate-fade-in-scale reveal-on-scroll">
@@ -3394,6 +3397,7 @@ export default function App() {
                 </div>
               </div>
             )}
+            </div>
           </main>
         </div>
       )}
