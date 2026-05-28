@@ -1,6 +1,6 @@
 # Documentacao Tecnica EnergiaPI
 
-Este documento explica o projeto EnergiaPI de forma didatica, pensando em estudantes com pouca ou nenhuma experiencia em programacao. A ideia e entender o sistema por partes: primeiro a visao geral, depois as tecnologias, a estrutura de arquivos, o fluxo de telas, a autenticacao, o banco de dados e os principais componentes.
+Este documento explica o projeto EnergiaPI de forma didatica. A ideia é entender o sistema por partes: primeiro a visao geral, depois as tecnologias usadas, a estrutura de arquivos, o fluxo de telas, a autenticacao, o banco de dados e os principais componentes.
 
 ## 1. Visao Geral Do Projeto
 
@@ -32,37 +32,48 @@ Chuveiro eletrico
 7 dias por semana
 ```
 
-Com esses dados, o sistema calcula uma estimativa mensal de consumo. Assim o usuario consegue perceber que pequenas mudancas, como reduzir tempo de banho ou trocar lampadas antigas por LED, podem gerar economia real.
+Com esses dados, o sistema calcula uma estimativa mensal de consumo. Assim o usuario consegue perceber que pequenas mudancas, como não deicar aparelhos ligados em "standy" o tempo todo ou trocar lampadas antigas por LED, podem gerar economia real.
 
 ### Tecnologia E Sustentabilidade
 
-O projeto conecta tecnologia e sustentabilidade porque usa software para educar sobre consumo consciente. O React cria a interface, o Firebase guarda os dados, e os calculos mostram impactos praticos: consumo, custo e reducao de carbono.
+O projeto conecta tecnologia e sustentabilidade porque usa software para educar sobre consumo consciente. O React cria a interface, o Firebase guarda e gerencia os dados, e os cálculos mostram impactos práticos: consumo, custo estimado e reducao de carbono.
 
-## 2. Tecnologias Utilizadas
+## 2. Stack Tecnológica
 
 ### React
 
-React e uma biblioteca JavaScript para construir interfaces. No EnergiaPI, cada tela, botao, card, modal e formulario e escrito com JSX, uma sintaxe parecida com HTML dentro do JavaScript.
+O React é uma biblioteca JavaScript para construir interfaces. Ela é o principal componente usado para construir nosso front-end. No EnergiaPI, usamos esse recurso em cada tela(aba), botão, card, modal, caixas de pesquisa, formulários e escrito com JSX, uma sintaxe parecida com HTML dentro do JavaScript.
 
 Exemplo simples:
 
 ```jsx
-function Saudacao() {
-  return <h1>Ola, EnergiaPI!</h1>;
+function LockIcon({ className }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+      />
+    </svg>
+  );
 }
 ```
 
-No projeto, o principal componente React e `App`, localizado em `src/App.jsx`.
+No projeto, o principal componente React é `App.jsx`, localizado em `src/App.jsx`.
 
 ### Vite
 
-Vite e a ferramenta que inicia e empacota o projeto React. Ele e responsavel por:
+No projeto EnergiaPI, usamos o Vite durante todo o desenvolvimento para otimizar a estrutura feita em .jsx, visando a fluidez e velocidade da aplicação.
 
-- rodar o servidor de desenvolvimento;
-- recarregar a pagina rapidamente enquanto o codigo e editado;
-- gerar a versao final de producao.
-
-Scripts do `package.json`:
+Como localizar Vite no repostório? Busque os "scripts" no `package.json`:
 
 ```json
 {
@@ -86,7 +97,7 @@ JavaScript e a linguagem principal do projeto. Ela controla:
 
 ### Tailwind CSS
 
-Tailwind CSS e uma ferramenta de estilos baseada em classes utilitarias. Em vez de escrever muito CSS separado, o projeto usa classes diretamente no JSX.
+Tailwind CSS e uma ferramenta de estilos baseada em classes utilitarias. Em vez de escrever muito CSS separado, optamos pela facilidade dessa stack, que usa classes diretamente no JSX.
 
 Exemplo:
 
@@ -100,11 +111,7 @@ Essa classe define cor de fundo, cor do texto, borda arredondada e espacamento.
 
 ### Firebase
 
-Firebase e a plataforma usada como backend. No EnergiaPI, ele cuida principalmente de:
-
-- autenticacao de usuarios;
-- banco de dados Firestore;
-- persistencia de login.
+Firebase é a plataforma usada como backend. No EnergiaPI, ele é responsável, principalmente, pela autenticação dos usuários, através do Firebase Authentication, disponíveis nos métodos de login "Provedor: Google" e "Provedor: Email/Senha"; armazenamento e usabilidade dos dados de pontuação, endereço, aparelhos cadastrados e rankings.
 
 ### Firebase Authentication
 
@@ -124,9 +131,15 @@ No codigo, isso aparece em `src/App.jsx` com funcoes como:
 
 ### Firestore Database
 
-Firestore e o banco de dados NoSQL do Firebase. Ele guarda dados em colecoes e documentos.
+Foram usadas quatro coleções que armazenam e gerenciam os dados principais da aplicação.
 
-Exemplo mental:
+Coleções:
+
+- Community
+- rankings
+- schools
+- users
+  Exemplo de como as coleções foram usadas:
 
 ```txt
 users
@@ -141,12 +154,7 @@ No projeto, o arquivo principal de acesso ao Firestore e `src/services/firestore
 
 ### Vercel
 
-Vercel e uma plataforma comum para publicar aplicacoes Vite/React. Este projeto nao possui um arquivo especifico de configuracao da Vercel no repositorio, mas uma aplicacao Vite normalmente pode ser publicada com:
-
-```txt
-Build command: npm run build
-Output directory: dist
-```
+Vercel é uma plataforma comum para publicar aplicacoes Vite/React. No EnergiaPI, usamos ele para publicá-lo online.
 
 O Vite gera a pasta `dist`, que e a versao pronta para hospedagem.
 
@@ -156,7 +164,6 @@ Estrutura real do projeto:
 
 ```txt
 .
-├── DOCUMENTACAO_TECNICA_ENERGIAPI.md
 ├── README.md
 ├── docs/
 ├── public/
@@ -190,7 +197,7 @@ Contem:
 
 ### `src/App.jsx`
 
-E o maior arquivo do projeto e concentra a maior parte da aplicacao:
+É o maior arquivo do projeto e concentra a maior parte da aplicação:
 
 - login;
 - cadastro;
@@ -253,7 +260,7 @@ Isso evita que o usuario veja uma tela totalmente branca.
 
 ### `src/components/`
 
-Contem componentes reutilizaveis.
+Contém componentes reutilizaveis.
 
 Arquivos importantes:
 
@@ -275,14 +282,7 @@ Ela pergunta:
 Tambem possui area de video introdutorio:
 
 ```jsx
-<video
-  src="/videos/demo.mp4"
-  controls
-  autoPlay
-  muted
-  loop
-  playsInline
-/>
+<video src="/videos/demo.mp4" controls autoPlay muted loop playsInline />
 ```
 
 Se o video falhar, aparece um fallback visual com logo EnergiaPI.
@@ -1101,7 +1101,7 @@ Formula simplificada:
 O projeto usa:
 
 ```js
-SEMANAS_MEDIA_MES = 4.345
+SEMANAS_MEDIA_MES = 4.345;
 ```
 
 ### Estimativa Financeira
@@ -1109,13 +1109,13 @@ SEMANAS_MEDIA_MES = 4.345
 A tarifa usada esta em:
 
 ```js
-TARIFA_KWH_PI = 0.88
+TARIFA_KWH_PI = 0.88;
 ```
 
 Funcao:
 
 ```js
-calcularCustoMensal(consumoMensal)
+calcularCustoMensal(consumoMensal);
 ```
 
 Ela multiplica kWh por tarifa.
@@ -1125,7 +1125,7 @@ Ela multiplica kWh por tarifa.
 O projeto tambem estima carbono com:
 
 ```js
-FATOR_CO2_SIN_KG_KWH = 0.125
+FATOR_CO2_SIN_KG_KWH = 0.125;
 ```
 
 ## 10. Explicacao Das Missoes
@@ -1403,7 +1403,7 @@ Lista de valores.
 Exemplo:
 
 ```js
-["dashboard", "aparelhos", "missões"]
+["dashboard", "aparelhos", "missões"];
 ```
 
 ### Objeto
@@ -1459,254 +1459,254 @@ Esta secao serve como guia rapido para localizar cada parte do projeto.
 
 ### Arquivos Da Raiz
 
-| Arquivo | Papel no projeto |
-| --- | --- |
-| `package.json` | Lista dependencias e scripts, como `npm run dev`, `npm run build`, `npm run lint` e `npm run import:firestore`. |
-| `package-lock.json` | Registra versoes exatas instaladas pelo npm. |
-| `index.html` | Pagina HTML base. Contem a div `#root`, onde o React renderiza o app. |
-| `vite.config.js` | Configura Vite com plugins React e Tailwind. |
-| `eslint.config.js` | Configuracao do ESLint para analisar qualidade do codigo. |
-| `firebase.json` | Aponta para o arquivo de regras `firestore.rules`. |
-| `firestore.rules` | Define permissoes de leitura e escrita no Firestore. |
-| `README.md` | README inicial do template React + Vite. |
-| `DOCUMENTACAO_TECNICA_ENERGIAPI.md` | Este documento. |
+| Arquivo                             | Papel no projeto                                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `package.json`                      | Lista dependencias e scripts, como `npm run dev`, `npm run build`, `npm run lint` e `npm run import:firestore`. |
+| `package-lock.json`                 | Registra versoes exatas instaladas pelo npm.                                                                    |
+| `index.html`                        | Pagina HTML base. Contem a div `#root`, onde o React renderiza o app.                                           |
+| `vite.config.js`                    | Configura Vite com plugins React e Tailwind.                                                                    |
+| `eslint.config.js`                  | Configuracao do ESLint para analisar qualidade do codigo.                                                       |
+| `firebase.json`                     | Aponta para o arquivo de regras `firestore.rules`.                                                              |
+| `firestore.rules`                   | Define permissoes de leitura e escrita no Firestore.                                                            |
+| `README.md`                         | README inicial do template React + Vite.                                                                        |
+| `DOCUMENTACAO_TECNICA_ENERGIAPI.md` | Este documento.                                                                                                 |
 
 ### Pasta `public`
 
-| Arquivo ou pasta | Papel |
-| --- | --- |
-| `public/logo.png` | Logo usada em telas, header e fallback de video. |
-| `public/favicon.svg` | Icone da aba do navegador. |
-| `public/icons.svg` | Arquivo SVG publico de icones. |
-| `public/videos/.gitkeep` | Mantem a pasta `videos` versionada mesmo vazia. |
+| Arquivo ou pasta         | Papel                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `public/logo.png`        | Logo usada em telas, header e fallback de video.                              |
+| `public/favicon.svg`     | Icone da aba do navegador.                                                    |
+| `public/icons.svg`       | Arquivo SVG publico de icones.                                                |
+| `public/videos/.gitkeep` | Mantem a pasta `videos` versionada mesmo vazia.                               |
 | `public/videos/demo.mp4` | Video esperado pela tela introdutoria. Se nao existir, o app mostra fallback. |
 
 ### Pasta `src`
 
-| Arquivo | Papel |
-| --- | --- |
-| `src/main.jsx` | Entrada do React. Renderiza `App` dentro de `ErrorBoundary`. |
-| `src/App.jsx` | Componente central com autenticacao, telas, abas, modais e estilos globais. |
-| `src/firebase.js` | Configura Firebase App, Auth, Firestore e Google Provider. |
-| `src/ErrorBoundary.jsx` | Mostra tela de erro amigavel se a renderizacao quebrar. |
-| `src/index.css` | Importa Tailwind CSS. |
-| `src/App.css` | Arquivo CSS antigo/auxiliar. No codigo atual, `main.jsx` importa `index.css`, nao `App.css`. |
-| `src/components/layout/Header.jsx` | Arquivo existente, atualmente sem conteudo renderizado. |
+| Arquivo                            | Papel                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `src/main.jsx`                     | Entrada do React. Renderiza `App` dentro de `ErrorBoundary`.                                 |
+| `src/App.jsx`                      | Componente central com autenticacao, telas, abas, modais e estilos globais.                  |
+| `src/firebase.js`                  | Configura Firebase App, Auth, Firestore e Google Provider.                                   |
+| `src/ErrorBoundary.jsx`            | Mostra tela de erro amigavel se a renderizacao quebrar.                                      |
+| `src/index.css`                    | Importa Tailwind CSS.                                                                        |
+| `src/App.css`                      | Arquivo CSS antigo/auxiliar. No codigo atual, `main.jsx` importa `index.css`, nao `App.css`. |
+| `src/components/layout/Header.jsx` | Arquivo existente, atualmente sem conteudo renderizado.                                      |
 
 ### Funcoes Importantes De `src/firebase.js`
 
-| Nome | Explicacao |
-| --- | --- |
+| Nome                 | Explicacao                                                       |
+| -------------------- | ---------------------------------------------------------------- |
 | `isPlaceholderValue` | Verifica se uma configuracao parece vazia, falsa ou placeholder. |
-| `resolveConfigValue` | Escolhe valor do `.env` ou fallback padrao. |
-| `firebaseConfig` | Objeto final de configuracao do Firebase. |
-| `auth` | Servico de autenticacao do Firebase. |
-| `db` | Instancia do Firestore. |
-| `provider` | Provider Google usado no login. |
-| `authReady` | Promessa que configura persistencia local do login. |
+| `resolveConfigValue` | Escolhe valor do `.env` ou fallback padrao.                      |
+| `firebaseConfig`     | Objeto final de configuracao do Firebase.                        |
+| `auth`               | Servico de autenticacao do Firebase.                             |
+| `db`                 | Instancia do Firestore.                                          |
+| `provider`           | Provider Google usado no login.                                  |
+| `authReady`          | Promessa que configura persistencia local do login.              |
 
 ### Funcoes E Constantes Importantes De `src/App.jsx`
 
-| Nome | Para que serve |
-| --- | --- |
-| `LOGO_URL` | Caminho da logo. |
-| `ABAS_APP` | Lista de abas internas do app. |
-| `SWIPE_MIN_DISTANCE` | Distancia minima para gesto de trocar aba no mobile. |
-| `LogoEnergiaPI` | Mostra a logo do projeto. |
-| `GoogleIcon` | Mostra o icone Google no botao de login/cadastro. |
-| `Emoji` | Renderiza emoji com Twemoji e fallback seguro. |
-| `normalizarEmojiVisual` | Evita emojis corrompidos na interface. |
-| `iconeAparelhoSeguro` | Escolhe icone confiavel para aparelho pelo nome. |
-| `nomePublicoEscola` | Garante que a UI mostre nome de escola, nao `escolaId`. |
-| `montarEndereco` | Junta bairro, numero, cidade/estado e CEP em uma string. |
-| `formatarCep` | Formata CEP como `00000-000`. |
-| `normalizarEmail` | Remove espacos e coloca email em minusculas. |
-| `emailEhPermitido` | Verifica dominios permitidos de email. |
-| `aguardarPopup` | Limita o tempo de espera do popup Google. |
-| `lerPerfisSalvos` | Le cache local de perfis no navegador. |
-| `salvarPerfilUsuario` | Salva perfil no `localStorage`. |
-| `detectarAuthProvider` | Identifica se a conta veio de Google ou senha. |
-| `registrarErroAuth` | Registra erros de autenticacao no console. |
-| `carregarPerfilUsuario` | Monta perfil inicial a partir de Firebase e cache local. |
-| `traduzirErroFirebase` | Transforma codigos Firebase em mensagens amigaveis. |
-| `App` | Componente principal da aplicacao. |
-| `dispararNotificacao` | Mostra mensagem temporaria na tela. |
-| `validarFirebaseConfigurado` | Bloqueia login se Firebase estiver mal configurado. |
-| `fecharModalTemplates` | Fecha modal de modelos de aparelhos e limpa busca. |
-| `calcularConsumoAparelho` | Calcula consumo usando dados de aparelho. |
-| `aplicarPerfilUsuario` | Atualiza estados locais com dados do perfil. |
-| `sincronizarUsuarioAutenticado` | Garante que usuario logado tenha documento no Firestore. |
-| `handleAuthSubmit` | Controla login/cadastro por email e senha. |
-| `finalizarGoogleAuth` | Finaliza fluxo do Google e decide se falta onboarding. |
-| `autenticarComGoogle` | Faz login/cadastro com popup ou redirect Google. |
-| `handleGoogleSignup` | Inicia cadastro com Google. |
-| `handleGoogleLogin` | Inicia login com Google. |
-| `handleLogout` | Sai da conta e limpa estados de sessao. |
-| `handleOnboardingSubmit` | Salva perfil inicial vindo do `OnboardingGate`. |
-| `adicionarTemplate` | Adiciona aparelho oficial ao usuario. |
-| `salvarNovoAparelhoCustomizado` | Salva aparelho criado manualmente. |
-| `atualizarEletrodomestico` | Atualiza dados de um aparelho do usuario. |
-| `abrirEditorRapido` | Abre editor pequeno de valor numerico. |
-| `aplicarValorRapido` | Aplica valor escolhido no editor rapido. |
-| `solicitarExclusaoEletrodomestico` | Abre confirmacao para excluir aparelho. |
-| `confirmarExclusaoEletrodomestico` | Remove aparelho do Firestore. |
-| `aceitarMissao` | Ativa uma missao desbloqueada. |
-| `completarMissao` | Conclui missao, soma pontos e atualiza ranking. |
-| `SliderAnimado` | Slider visual customizado da aba Aparelhos. |
-| `handleSwipeStart` e `handleSwipeEnd` | Controlam troca de abas por gesto no mobile. |
-| `LockIcon` | Pequeno icone SVG usado em partes bloqueadas da interface. |
+| Nome                                  | Para que serve                                             |
+| ------------------------------------- | ---------------------------------------------------------- |
+| `LOGO_URL`                            | Caminho da logo.                                           |
+| `ABAS_APP`                            | Lista de abas internas do app.                             |
+| `SWIPE_MIN_DISTANCE`                  | Distancia minima para gesto de trocar aba no mobile.       |
+| `LogoEnergiaPI`                       | Mostra a logo do projeto.                                  |
+| `GoogleIcon`                          | Mostra o icone Google no botao de login/cadastro.          |
+| `Emoji`                               | Renderiza emoji com Twemoji e fallback seguro.             |
+| `normalizarEmojiVisual`               | Evita emojis corrompidos na interface.                     |
+| `iconeAparelhoSeguro`                 | Escolhe icone confiavel para aparelho pelo nome.           |
+| `nomePublicoEscola`                   | Garante que a UI mostre nome de escola, nao `escolaId`.    |
+| `montarEndereco`                      | Junta bairro, numero, cidade/estado e CEP em uma string.   |
+| `formatarCep`                         | Formata CEP como `00000-000`.                              |
+| `normalizarEmail`                     | Remove espacos e coloca email em minusculas.               |
+| `emailEhPermitido`                    | Verifica dominios permitidos de email.                     |
+| `aguardarPopup`                       | Limita o tempo de espera do popup Google.                  |
+| `lerPerfisSalvos`                     | Le cache local de perfis no navegador.                     |
+| `salvarPerfilUsuario`                 | Salva perfil no `localStorage`.                            |
+| `detectarAuthProvider`                | Identifica se a conta veio de Google ou senha.             |
+| `registrarErroAuth`                   | Registra erros de autenticacao no console.                 |
+| `carregarPerfilUsuario`               | Monta perfil inicial a partir de Firebase e cache local.   |
+| `traduzirErroFirebase`                | Transforma codigos Firebase em mensagens amigaveis.        |
+| `App`                                 | Componente principal da aplicacao.                         |
+| `dispararNotificacao`                 | Mostra mensagem temporaria na tela.                        |
+| `validarFirebaseConfigurado`          | Bloqueia login se Firebase estiver mal configurado.        |
+| `fecharModalTemplates`                | Fecha modal de modelos de aparelhos e limpa busca.         |
+| `calcularConsumoAparelho`             | Calcula consumo usando dados de aparelho.                  |
+| `aplicarPerfilUsuario`                | Atualiza estados locais com dados do perfil.               |
+| `sincronizarUsuarioAutenticado`       | Garante que usuario logado tenha documento no Firestore.   |
+| `handleAuthSubmit`                    | Controla login/cadastro por email e senha.                 |
+| `finalizarGoogleAuth`                 | Finaliza fluxo do Google e decide se falta onboarding.     |
+| `autenticarComGoogle`                 | Faz login/cadastro com popup ou redirect Google.           |
+| `handleGoogleSignup`                  | Inicia cadastro com Google.                                |
+| `handleGoogleLogin`                   | Inicia login com Google.                                   |
+| `handleLogout`                        | Sai da conta e limpa estados de sessao.                    |
+| `handleOnboardingSubmit`              | Salva perfil inicial vindo do `OnboardingGate`.            |
+| `adicionarTemplate`                   | Adiciona aparelho oficial ao usuario.                      |
+| `salvarNovoAparelhoCustomizado`       | Salva aparelho criado manualmente.                         |
+| `atualizarEletrodomestico`            | Atualiza dados de um aparelho do usuario.                  |
+| `abrirEditorRapido`                   | Abre editor pequeno de valor numerico.                     |
+| `aplicarValorRapido`                  | Aplica valor escolhido no editor rapido.                   |
+| `solicitarExclusaoEletrodomestico`    | Abre confirmacao para excluir aparelho.                    |
+| `confirmarExclusaoEletrodomestico`    | Remove aparelho do Firestore.                              |
+| `aceitarMissao`                       | Ativa uma missao desbloqueada.                             |
+| `completarMissao`                     | Conclui missao, soma pontos e atualiza ranking.            |
+| `SliderAnimado`                       | Slider visual customizado da aba Aparelhos.                |
+| `handleSwipeStart` e `handleSwipeEnd` | Controlam troca de abas por gesto no mobile.               |
+| `LockIcon`                            | Pequeno icone SVG usado em partes bloqueadas da interface. |
 
 ### Telas Renderizadas Em `App.jsx`
 
-| Tela | Quando aparece |
-| --- | --- |
-| Carregamento | Enquanto `authCarregando` ou cadastro por email esta finalizando. |
-| Login/Cadastro | Quando `autenticado` e falso. |
-| Perfil inicial | Quando usuario Google ainda nao completou onboarding. |
-| Dashboard/Resumo | Aba `dashboard`, com consumo, score, insights e ranking de aparelhos. |
-| Aparelhos | Aba `aparelhos`, com cards, sliders, modelos e aparelhos customizados. |
-| Missoes | Aba `missões`, com desafios desbloqueados e futuros. |
-| Comunidade | Aba `comunidade`, com ranking publico dos auditores. |
-| Escolas do Piaui | Aba `ranking`, com ranking de CETIs. |
-| Modais | Aparecem para modelos de aparelhos, novo aparelho e confirmacao de exclusao. |
+| Tela             | Quando aparece                                                               |
+| ---------------- | ---------------------------------------------------------------------------- |
+| Carregamento     | Enquanto `authCarregando` ou cadastro por email esta finalizando.            |
+| Login/Cadastro   | Quando `autenticado` e falso.                                                |
+| Perfil inicial   | Quando usuario Google ainda nao completou onboarding.                        |
+| Dashboard/Resumo | Aba `dashboard`, com consumo, score, insights e ranking de aparelhos.        |
+| Aparelhos        | Aba `aparelhos`, com cards, sliders, modelos e aparelhos customizados.       |
+| Missoes          | Aba `missões`, com desafios desbloqueados e futuros.                         |
+| Comunidade       | Aba `comunidade`, com ranking publico dos auditores.                         |
+| Escolas do Piaui | Aba `ranking`, com ranking de CETIs.                                         |
+| Modais           | Aparecem para modelos de aparelhos, novo aparelho e confirmacao de exclusao. |
 
 ### `src/components/onboarding/OnboardingGate.jsx`
 
-| Nome | Explicacao |
-| --- | --- |
-| `VIDEO_SRC` | Caminho `/videos/demo.mp4`. |
-| `apenasNumeros` | Remove tudo que nao e numero. |
-| `formatarCep` | Formata o CEP digitado. |
-| `montarEndereco` | Monta endereco completo para salvar no perfil. |
-| `InstitutionalVideo` | Mostra video de demonstracao ou fallback com logo. |
-| `OnboardingGate` | Tela que coleta perfil inicial: estudante/morador, CEP, numero e escola. |
-| `formularioValido` | `useMemo` que libera o botao Enviar apenas quando tudo esta correto. |
-| `handleCepChange` | Atualiza CEP e limpa endereco se CEP ainda esta incompleto. |
-| `useEffect` do CEP | Consulta ViaCEP quando ha 8 digitos. |
-| `enviar` | Faz submit do perfil inicial chamando `onSubmit`. |
+| Nome                 | Explicacao                                                               |
+| -------------------- | ------------------------------------------------------------------------ |
+| `VIDEO_SRC`          | Caminho `/videos/demo.mp4`.                                              |
+| `apenasNumeros`      | Remove tudo que nao e numero.                                            |
+| `formatarCep`        | Formata o CEP digitado.                                                  |
+| `montarEndereco`     | Monta endereco completo para salvar no perfil.                           |
+| `InstitutionalVideo` | Mostra video de demonstracao ou fallback com logo.                       |
+| `OnboardingGate`     | Tela que coleta perfil inicial: estudante/morador, CEP, numero e escola. |
+| `formularioValido`   | `useMemo` que libera o botao Enviar apenas quando tudo esta correto.     |
+| `handleCepChange`    | Atualiza CEP e limpa endereco se CEP ainda esta incompleto.              |
+| `useEffect` do CEP   | Consulta ViaCEP quando ha 8 digitos.                                     |
+| `enviar`             | Faz submit do perfil inicial chamando `onSubmit`.                        |
 
 ### `src/components/schools/SchoolSearchPicker.jsx`
 
-| Nome | Explicacao |
-| --- | --- |
-| `getGRE` | Pega `GRE` ou `gre` de uma escola. |
-| `getSchoolMeta` | Junta GRE, regiao e cidade para mostrar detalhe. |
-| `fallbackTheme` | Tema padrao caso `tm` nao seja enviado. |
-| `SchoolSearchPicker` | Modal de busca e selecao de CETI. |
-| `closeModal` | Fecha modal e limpa busca. |
-| `selecionarEscola` | Envia escola escolhida ao componente pai. |
+| Nome                 | Explicacao                                       |
+| -------------------- | ------------------------------------------------ |
+| `getGRE`             | Pega `GRE` ou `gre` de uma escola.               |
+| `getSchoolMeta`      | Junta GRE, regiao e cidade para mostrar detalhe. |
+| `fallbackTheme`      | Tema padrao caso `tm` nao seja enviado.          |
+| `SchoolSearchPicker` | Modal de busca e selecao de CETI.                |
+| `closeModal`         | Fecha modal e limpa busca.                       |
+| `selecionarEscola`   | Envia escola escolhida ao componente pai.        |
 
 ### Hooks
 
-| Arquivo | Hook/Função | Explicacao |
-| --- | --- | --- |
-| `useDebouncedValue.js` | `useDebouncedValue` | Espera um tempo antes de atualizar valor. Usado em busca. |
-| `useCatalogSearch.js` | `useAsyncSearch` | Logica generica para buscar dados com loading e debounce. |
-| `useCatalogSearch.js` | `useSchoolSearch` | Busca escolas. |
-| `useCatalogSearch.js` | `useDeviceCatalogSearch` | Busca aparelhos oficiais. |
-| `useMissions.js` | `trilhaPorThreshold` | Converte score minimo em trilha: Basicas, Intermediarias etc. |
-| `useMissions.js` | `useMissions` | Junta catalogo de missoes com progresso do usuario. |
-| `useUserDevices.js` | `useUserDevices` | Le, adiciona, atualiza e remove aparelhos do usuario. |
-| `useRankings.js` | `useRankings` | Assina rankings de escolas e comunidade. |
+| Arquivo                | Hook/Função              | Explicacao                                                    |
+| ---------------------- | ------------------------ | ------------------------------------------------------------- |
+| `useDebouncedValue.js` | `useDebouncedValue`      | Espera um tempo antes de atualizar valor. Usado em busca.     |
+| `useCatalogSearch.js`  | `useAsyncSearch`         | Logica generica para buscar dados com loading e debounce.     |
+| `useCatalogSearch.js`  | `useSchoolSearch`        | Busca escolas.                                                |
+| `useCatalogSearch.js`  | `useDeviceCatalogSearch` | Busca aparelhos oficiais.                                     |
+| `useMissions.js`       | `trilhaPorThreshold`     | Converte score minimo em trilha: Basicas, Intermediarias etc. |
+| `useMissions.js`       | `useMissions`            | Junta catalogo de missoes com progresso do usuario.           |
+| `useUserDevices.js`    | `useUserDevices`         | Le, adiciona, atualiza e remove aparelhos do usuario.         |
+| `useRankings.js`       | `useRankings`            | Assina rankings de escolas e comunidade.                      |
 
 ### `src/services/firestoreService.js`
 
-| Nome | Explicacao |
-| --- | --- |
-| `colecao` | Atalho para `collection(db, nome)`. |
-| `dataDoc` | Junta ID do documento com seus dados. |
-| `normalizarTipoUsuario` | Garante tipo `estudante`, `morador` ou vazio. |
-| `escolaIdPareceSlug` | Detecta slugs como `ceti_didacio_silva`. |
-| `normalizarEscola` | Padroniza documento de escola para ranking/busca. |
-| `ordenarRankingEscolas` | Ordena escolas por score, auditores e nome. |
-| `normalizarRankingComunidade` | Padroniza perfil publico do ranking. |
-| `ordenarRankingComunidade` | Ordena comunidade por score, kWh salvo e nome. |
-| `normalizarMissoes` | Ajusta missoes iniciais, liberando as primeiras. |
-| `normalizarEmojiVisual` | Corrige emoji vazio ou corrompido. |
-| `normalizarEmojiAparelho` | Escolhe emoji de aparelho pelo nome. |
-| `normalizarAparelhoCatalogo` | Garante `emoji` e `icone` coerentes. |
-| `normalizarPerfilUsuario` | Padroniza dados do perfil privado. |
-| `ordenarPorScoreBusca` | Ordena resultados por relevancia da busca. |
-| `fallbackQuandoVazio` | Usa fallback se uma lista vier vazia. |
-| `cacheGet` e `cacheSet` | Controlam cache com tempo de vida. |
-| `lerRankingsCache` e `salvarRankingsCache` | Cacheiam rankings no `localStorage`. |
-| `withTimeout` | Impede chamada Firestore de ficar esperando para sempre. |
-| `gerarBadgesPontuacao` | Cria badges conforme pontuacao. |
-| `montarCommunityProfile` | Monta perfil publico para ranking. |
-| `montarUserProfile` | Monta documento completo do usuario. |
-| `getUserProfile` | Le `users/{uid}`. |
-| `montarPendingUserProfile` | Cria perfil pendente para usuario Google sem onboarding. |
-| `ensureUserDocument` | Garante que o usuario tenha documento no Firestore. |
-| `completeUserOnboarding` | Finaliza perfil, atualiza `users`, `community` e escola. |
-| `saveUserProfile` | Alias para completar/salvar perfil. |
-| `subscribeUserDocument` | Escuta documento privado do usuario. |
-| `addUserScore` | Soma pontos e atualiza rankings por transacao. |
-| `searchSchools` | Busca escolas por keywords. |
-| `searchDevices` | Busca aparelhos por keywords/categoria. |
-| `subscribeUserDevices` | Escuta aparelhos do usuario. |
-| `addUserDevice` | Adiciona aparelho na subcolecao do usuario. |
-| `updateUserDevice` | Atualiza aparelho existente. |
-| `removeUserDevice` | Remove aparelho. |
-| `subscribeMissions` | Escuta catalogo de missoes. |
-| `subscribeUserMissionProgress` | Escuta progresso das missoes do usuario. |
-| `setUserMissionProgress` | Salva progresso de uma missao. |
-| `listarRankingEscolas` | Le escolas para ranking. |
-| `listarRankingComunidade` | Le comunidade para ranking. |
-| `subscribeRankings` | Junta ranking de escolas e comunidade em tempo real. |
-| `normalizeSchoolForImport` | Padroniza escola antes de importacao. |
-| `incrementRankingSchool` | Funcao vazia mantida por compatibilidade. |
+| Nome                                       | Explicacao                                               |
+| ------------------------------------------ | -------------------------------------------------------- |
+| `colecao`                                  | Atalho para `collection(db, nome)`.                      |
+| `dataDoc`                                  | Junta ID do documento com seus dados.                    |
+| `normalizarTipoUsuario`                    | Garante tipo `estudante`, `morador` ou vazio.            |
+| `escolaIdPareceSlug`                       | Detecta slugs como `ceti_didacio_silva`.                 |
+| `normalizarEscola`                         | Padroniza documento de escola para ranking/busca.        |
+| `ordenarRankingEscolas`                    | Ordena escolas por score, auditores e nome.              |
+| `normalizarRankingComunidade`              | Padroniza perfil publico do ranking.                     |
+| `ordenarRankingComunidade`                 | Ordena comunidade por score, kWh salvo e nome.           |
+| `normalizarMissoes`                        | Ajusta missoes iniciais, liberando as primeiras.         |
+| `normalizarEmojiVisual`                    | Corrige emoji vazio ou corrompido.                       |
+| `normalizarEmojiAparelho`                  | Escolhe emoji de aparelho pelo nome.                     |
+| `normalizarAparelhoCatalogo`               | Garante `emoji` e `icone` coerentes.                     |
+| `normalizarPerfilUsuario`                  | Padroniza dados do perfil privado.                       |
+| `ordenarPorScoreBusca`                     | Ordena resultados por relevancia da busca.               |
+| `fallbackQuandoVazio`                      | Usa fallback se uma lista vier vazia.                    |
+| `cacheGet` e `cacheSet`                    | Controlam cache com tempo de vida.                       |
+| `lerRankingsCache` e `salvarRankingsCache` | Cacheiam rankings no `localStorage`.                     |
+| `withTimeout`                              | Impede chamada Firestore de ficar esperando para sempre. |
+| `gerarBadgesPontuacao`                     | Cria badges conforme pontuacao.                          |
+| `montarCommunityProfile`                   | Monta perfil publico para ranking.                       |
+| `montarUserProfile`                        | Monta documento completo do usuario.                     |
+| `getUserProfile`                           | Le `users/{uid}`.                                        |
+| `montarPendingUserProfile`                 | Cria perfil pendente para usuario Google sem onboarding. |
+| `ensureUserDocument`                       | Garante que o usuario tenha documento no Firestore.      |
+| `completeUserOnboarding`                   | Finaliza perfil, atualiza `users`, `community` e escola. |
+| `saveUserProfile`                          | Alias para completar/salvar perfil.                      |
+| `subscribeUserDocument`                    | Escuta documento privado do usuario.                     |
+| `addUserScore`                             | Soma pontos e atualiza rankings por transacao.           |
+| `searchSchools`                            | Busca escolas por keywords.                              |
+| `searchDevices`                            | Busca aparelhos por keywords/categoria.                  |
+| `subscribeUserDevices`                     | Escuta aparelhos do usuario.                             |
+| `addUserDevice`                            | Adiciona aparelho na subcolecao do usuario.              |
+| `updateUserDevice`                         | Atualiza aparelho existente.                             |
+| `removeUserDevice`                         | Remove aparelho.                                         |
+| `subscribeMissions`                        | Escuta catalogo de missoes.                              |
+| `subscribeUserMissionProgress`             | Escuta progresso das missoes do usuario.                 |
+| `setUserMissionProgress`                   | Salva progresso de uma missao.                           |
+| `listarRankingEscolas`                     | Le escolas para ranking.                                 |
+| `listarRankingComunidade`                  | Le comunidade para ranking.                              |
+| `subscribeRankings`                        | Junta ranking de escolas e comunidade em tempo real.     |
+| `normalizeSchoolForImport`                 | Padroniza escola antes de importacao.                    |
+| `incrementRankingSchool`                   | Funcao vazia mantida por compatibilidade.                |
 
 ### `src/utils/energyCalculations.js`
 
-| Nome | Explicacao |
-| --- | --- |
-| `TARIFA_KWH_PI` | Tarifa usada no calculo financeiro. |
-| `FATOR_CO2_SIN_KG_KWH` | Fator usado para estimar carbono. |
-| `SEMANAS_MEDIA_MES` | Media de semanas por mes. |
-| `numeroSeguro` | Converte valor em numero confiavel. |
-| `arredondar` | Arredonda para casas decimais. |
-| `calcularConsumoMensal` | Calcula kWh mensal estimado. |
-| `calcularCustoMensal` | Calcula custo em reais. |
-| `calcularCarbonoMensal` | Calcula emissao estimada. |
+| Nome                    | Explicacao                                    |
+| ----------------------- | --------------------------------------------- |
+| `TARIFA_KWH_PI`         | Tarifa usada no calculo financeiro.           |
+| `FATOR_CO2_SIN_KG_KWH`  | Fator usado para estimar carbono.             |
+| `SEMANAS_MEDIA_MES`     | Media de semanas por mes.                     |
+| `numeroSeguro`          | Converte valor em numero confiavel.           |
+| `arredondar`            | Arredonda para casas decimais.                |
+| `calcularConsumoMensal` | Calcula kWh mensal estimado.                  |
+| `calcularCustoMensal`   | Calcula custo em reais.                       |
+| `calcularCarbonoMensal` | Calcula emissao estimada.                     |
 | `normalizarUsoAparelho` | Padroniza aparelho e recalcula consumo/custo. |
 
 ### `src/utils/text.js`
 
-| Nome | Explicacao |
-| --- | --- |
-| `removerAcentos` | Remove acentos para facilitar busca. |
-| `normalizarBusca` | Limpa texto para busca. |
-| `criarIdPadronizado` | Cria IDs como `ceti_didacio_silva`. |
-| `criarPrefixes` | Gera prefixos para busca parcial. |
-| `criarKeywords` | Cria lista de palavras-chave. |
+| Nome                           | Explicacao                              |
+| ------------------------------ | --------------------------------------- |
+| `removerAcentos`               | Remove acentos para facilitar busca.    |
+| `normalizarBusca`              | Limpa texto para busca.                 |
+| `criarIdPadronizado`           | Cria IDs como `ceti_didacio_silva`.     |
+| `criarPrefixes`                | Gera prefixos para busca parcial.       |
+| `criarKeywords`                | Cria lista de palavras-chave.           |
 | `distanciaLevenshteinLimitada` | Mede semelhanca simples entre palavras. |
-| `pontuarBusca` | Da nota para resultado de busca. |
+| `pontuarBusca`                 | Da nota para resultado de busca.        |
 
 ### `src/data/seedData.js`
 
-| Nome | Explicacao |
-| --- | --- |
-| `CATEGORIAS_APARELHOS` | Categorias usadas em aparelhos. |
-| `GRE_OPTIONS` | Lista de GREs. |
-| `SCHOOLS_SEED` | Escolas vindas de `schools.json`, normalizadas. |
-| `devicesBase` | Lista base de aparelhos. |
-| `emojiSeguroAparelho` | Escolhe emoji confiavel para aparelhos do seed. |
-| `DEVICES_SEED` | Catalogo inicial de aparelhos. |
-| `MISSIONS_SEED` | Catalogo inicial de missoes. |
-| `RANKING_ESCOLAS_SEED` | Ranking inicial baseado nas escolas. |
-| `RANKING_COMUNIDADE_SEED` | Usuarios demonstrativos para ranking. |
+| Nome                      | Explicacao                                      |
+| ------------------------- | ----------------------------------------------- |
+| `CATEGORIAS_APARELHOS`    | Categorias usadas em aparelhos.                 |
+| `GRE_OPTIONS`             | Lista de GREs.                                  |
+| `SCHOOLS_SEED`            | Escolas vindas de `schools.json`, normalizadas. |
+| `devicesBase`             | Lista base de aparelhos.                        |
+| `emojiSeguroAparelho`     | Escolhe emoji confiavel para aparelhos do seed. |
+| `DEVICES_SEED`            | Catalogo inicial de aparelhos.                  |
+| `MISSIONS_SEED`           | Catalogo inicial de missoes.                    |
+| `RANKING_ESCOLAS_SEED`    | Ranking inicial baseado nas escolas.            |
+| `RANKING_COMUNIDADE_SEED` | Usuarios demonstrativos para ranking.           |
 
 ### `scripts/importFirestoreData.mjs`
 
-| Nome | Explicacao |
-| --- | --- |
+| Nome                 | Explicacao                                                            |
+| -------------------- | --------------------------------------------------------------------- |
 | `serviceAccountPath` | Caminho da chave Firebase Admin via `GOOGLE_APPLICATION_CREDENTIALS`. |
-| `raw` | Le JSON de arquivo ou usa fallback. |
-| `separarGRECidade` | Separa texto no formato `GRE - cidade`. |
-| `normalizarEscola` | Padroniza escola antes de importar. |
-| `numero` | Limpa numeros vindos como texto. |
-| `normalizarDevice` | Padroniza aparelho antes de importar. |
-| `gravarColecao` | Usa batch para gravar muitos documentos. |
+| `raw`                | Le JSON de arquivo ou usa fallback.                                   |
+| `separarGRECidade`   | Separa texto no formato `GRE - cidade`.                               |
+| `normalizarEscola`   | Padroniza escola antes de importar.                                   |
+| `numero`             | Limpa numeros vindos como texto.                                      |
+| `normalizarDevice`   | Padroniza aparelho antes de importar.                                 |
+| `gravarColecao`      | Usa batch para gravar muitos documentos.                              |
 
 ## 14. Perguntas Que A Banca Pode Fazer
 
