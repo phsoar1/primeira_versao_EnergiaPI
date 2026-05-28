@@ -1,4 +1,4 @@
-export const TARIFA_KWH_PI = 0.88;
+export const TARIFA_KWH_PI = 0.94;
 export const FATOR_CO2_SIN_KG_KWH = 0.125;
 export const SEMANAS_MEDIA_MES = 4.345;
 
