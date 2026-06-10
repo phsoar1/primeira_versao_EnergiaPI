@@ -1,0 +1,1 @@
+export { subscribeRankings } from "./firestoreService";
