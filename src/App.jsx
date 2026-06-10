@@ -1328,7 +1328,7 @@ export default function App() {
           </div>
         </div>
       ) : !autenticado ? (
-        <div className="flex-1 min-h-0 flex items-start md:items-center justify-center p-4 md:p-8 mesh-gradient-auth relative scroll-custom ios-scroll auth-scroll-wrapper">
+        <div className="flex-1 min-h-0 w-full flex items-start justify-center px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32 mesh-gradient-auth relative scroll-custom ios-scroll auth-scroll-wrapper overflow-x-hidden">
           <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-6 pb-10 md:px-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-6 mx-auto">
             <div className="flex flex-col items-center mb-6">
               <BrandLogo size={72} className="mb-4" />
