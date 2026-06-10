@@ -211,6 +211,9 @@ export default function App() {
   const missoesFuturas = missoesComProgresso.filter(
     (missao) => !missao.desbloqueada,
   );
+  const missoesAtivas = missoesComProgresso.filter(
+    (missao) => missao.ativa === true && missao.concluida === false,
+  );
   const {
     escolasOrdenadas: rankingEscolasOrdenado,
     comunidadeOrdenada: rankingComunidadeOrdenado,
@@ -281,8 +284,6 @@ export default function App() {
     onboardingCompleto: usuario?.onboardingCompleto === true,
   };
   const primeiroNomeUsuario = usuarioSeguro.nome.split(" ")[0] || "Auditor";
-  const bairroUsuario =
-    usuarioSeguro.endereco.split(",")[0] || "sua comunidade";
   const onboardingPendente =
     autenticado &&
     !authCarregando &&
@@ -323,6 +324,7 @@ export default function App() {
   }, 0);
   const custoTotal = calcularCustoMensal(consumoTotal, TARIFA_KWH_PI);
   const carbonoTotal = calcularCarbonoMensal(consumoTotal);
+  const tarifaFormatada = TARIFA_KWH_PI.toFixed(2).replace(".", ",");
   const insightsEnergeticos = gerarInsightsEnergeticos({
     aparelhos: eletrodomesticos,
     consumoTotal,
@@ -1162,11 +1164,12 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
         html, body, #root {
-          min-height: 100%;
           height: 100%;
           overflow: hidden;
-          overscroll-behavior: none;
-          max-width: 100%;
+        }
+        .auth-scroll-wrapper {
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
         body {
           touch-action: manipulation;
@@ -1262,9 +1265,15 @@ export default function App() {
           to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .animate-fade-in-scale { animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .toast-enter { animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @media (prefers-reduced-motion: reduce) {
           .reveal-on-scroll,
-          .animate-fade-in-scale {
+          .animate-fade-in-scale,
+          .toast-enter {
             opacity: 1;
             transform: none;
             animation: none;
@@ -1319,8 +1328,8 @@ export default function App() {
           </div>
         </div>
       ) : !autenticado ? (
-        <div className="flex-1 min-h-0 flex items-start justify-center p-4 md:p-8 mesh-gradient-auth relative scroll-custom ios-scroll overflow-y-auto">
-          <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-auto">
+        <div className="flex-1 min-h-0 flex items-start md:items-center justify-center p-4 md:p-8 mesh-gradient-auth relative scroll-custom ios-scroll auth-scroll-wrapper">
+          <div className="w-full max-w-[460px] bg-[#0B1426]/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-6 py-6 pb-10 md:px-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative z-10 animate-fade-in-scale my-6 mx-auto">
             <div className="flex flex-col items-center mb-6">
               <BrandLogo size={72} className="mb-4" />
 
@@ -1566,10 +1575,9 @@ export default function App() {
                       disabled={authEmAndamento}
                       className="w-full mt-4 bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-white font-bold text-sm py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_8px_25px_rgba(16,185,129,0.3)] tracking-wide flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                      <Zap size={18} className="text-white animate-pulse" />{" "}
                       {authProcessando === "email-cadastro"
                         ? "Criando conta..."
-                        : "Concluir e Auditar"}
+                        : "Avançar"}
                     </button>
                   </div>
                 </div>
@@ -1632,10 +1640,16 @@ export default function App() {
                     className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${abaSelecionada === aba ? (isDark ? "text-black bg-white font-black" : "text-white bg-black font-black") : `${tm.textMuted} hover:${tm.text}`}`}
                   >
                     {aba === "dashboard"
-                      ? "Resumo"
+                      ? "Início"
                       : aba === "ranking"
-                        ? "Escolas do Piauí"
-                        : aba}
+                        ? "Ranking"
+                        : aba === "aparelhos"
+                          ? "Minha Casa"
+                          : aba === "comunidade"
+                            ? "Comunidade"
+                            : aba === "missões"
+                              ? "Missões"
+                              : aba}
                   </button>
                 ))}
               </nav>
@@ -1679,7 +1693,7 @@ export default function App() {
                     <h3
                       className={`font-extrabold text-sm tracking-widest uppercase ${tm.textMuted}`}
                     >
-                      Menu do Auditor
+                      Menu
                     </h3>
                     <button
                       onClick={() => setMenuAberto(false)}
@@ -1696,11 +1710,9 @@ export default function App() {
                       <p
                         className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${tm.textMuted}`}
                       >
-                        Auditor Logado (
                         {usuarioSeguro.perfil === "estudante"
-                          ? "Estudante"
+                          ? "Estudante SEDUC"
                           : "Morador"}
-                        )
                       </p>
                       <p className={`text-sm font-bold ${tm.text}`}>
                         {usuarioSeguro.nome}
@@ -1745,7 +1757,7 @@ export default function App() {
                   onClick={handleLogout}
                   className="w-full bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444] hover:text-white font-bold text-xs py-3 px-4 rounded-xl transition-all tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95"
                 >
-                  <LogOut size={16} /> Encerrar Sessão
+                  <LogOut size={16} /> Sair
                 </button>
               </div>
             </div>
@@ -1770,10 +1782,16 @@ export default function App() {
                     <Icone size={16} />
                     <span>
                       {aba === "dashboard"
-                        ? "Resumo"
+                        ? "Início"
                         : aba === "ranking"
-                          ? "Escolas"
-                          : aba}
+                          ? "Ranking"
+                          : aba === "aparelhos"
+                            ? "Casa"
+                            : aba === "comunidade"
+                              ? "Turma"
+                              : aba === "missões"
+                                ? "Missões"
+                                : aba}
                     </span>
                   </button>
                 );
@@ -1799,7 +1817,7 @@ export default function App() {
                   <div className="absolute top-0 right-0 w-80 h-80 bg-[#10B981]/10 rounded-full blur-3xl pointer-events-none" />
                   <div>
                     <span className="text-[10px] font-extrabold tracking-widest text-[#10B981] uppercase">
-                      Letramento Energético • Do Piauí para o Mundo
+                      Seu diagnóstico energético • Do Piauí para o Mundo
                     </span>
                     <h3
                       className={`text-2xl md:text-3xl font-extrabold tracking-tight mt-1 ${tm.text}`}
@@ -1809,9 +1827,9 @@ export default function App() {
                     <p
                       className={`text-xs mt-1.5 max-w-xl leading-relaxed ${tm.textMuted}`}
                     >
-                      Sua casa consome energia e gera CO₂. Ao mapear seus
-                      equipamentos, você descobre os vilões de consumo e salva
-                      dinheiro do orçamento familiar em {bairroUsuario}.
+                      Cada aparelho ligado tem um custo. O EnergiaPI mostra
+                      exatamente onde seu dinheiro vai embora — e como você
+                      pode trazer ele de volta.
                     </p>
                   </div>
                   <div
@@ -1824,7 +1842,7 @@ export default function App() {
                       <p
                         className={`text-[9px] font-extrabold uppercase tracking-widest ${tm.textMuted}`}
                       >
-                        Score Acumulado
+                        Seus pontos
                       </p>
                       <p className={`text-xl font-black ${tm.text}`}>
                         {pontuacao}{" "}
@@ -1846,6 +1864,44 @@ export default function App() {
                       Faça agora: ações simples e poderosas!
                     </h3>
                   </div>
+
+                  {missoesAtivas.length > 0 && (
+                    <div className="space-y-3">
+                      <p
+                        className={`text-[10px] font-extrabold uppercase tracking-widest ${tm.textMuted}`}
+                      >
+                        Missões em andamento
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {missoesAtivas.map((missao) => (
+                          <div
+                            key={missao.id}
+                            className={`border rounded-2xl p-4 flex items-center justify-between gap-4 ${
+                              isDark
+                                ? "bg-[#10B981]/5 border-[#10B981]/20"
+                                : "bg-emerald-50 border-emerald-200"
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-bold truncate ${tm.text}`}>
+                                {missao.titulo}
+                              </p>
+                              <p className={`text-xs mt-0.5 ${tm.textMuted}`}>
+                                +{missao.pontos} pts · {missao.categoria}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => completarMissao(missao.id)}
+                              className="shrink-0 bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95"
+                            >
+                              Concluir
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {insightsEnergeticos.map((insight) => (
@@ -1908,27 +1964,27 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
                     {
-                      title: "Consumo Estimado",
+                      title: "Consumo do mês",
                       tag: "Mensal",
                       valor: consumoTotal.toFixed(1),
                       suf: "kWh",
-                      subt: "Baseado em hábitos declarados",
+                      subt: "Baseado nos seus aparelhos",
                       icon: <Zap size={10} className="text-[#10B981]" />,
                     },
                     {
-                      title: "Custo Projetado",
+                      title: "Sua conta estimada",
                       tag: "Equatorial PI",
                       valor: `R$ ${custoTotal.toFixed(2)}`,
                       suf: "",
-                      subt: "Tarifa ANEEL: R$ 0,95/kWh",
+                      subt: `Tarifa Equatorial PI: R$ ${tarifaFormatada}/kWh`,
                       icon: null,
                     },
                     {
-                      title: "Emissão de Carbono",
+                      title: "Carbono gerado",
                       tag: "CO₂",
                       valor: carbonoTotal.toFixed(1),
                       suf: "kg",
-                      subt: "Fator médio anual do SIN",
+                      subt: "Equivalente a árvores derrubadas",
                       icon: null,
                       tagColor: "bg-[#EF4444]/10 text-[#EF4444]",
                     },
@@ -1970,10 +2026,10 @@ export default function App() {
                       <p
                         className={`text-[10px] font-bold tracking-wider uppercase ${tm.textMuted}`}
                       >
-                        Conquistas Ativas
+                        Suas conquistas
                       </p>
                       <span className="bg-purple-500/10 text-purple-500 text-[10px] font-bold py-1 px-2.5 rounded-full">
-                        Badges
+                        Medalhas
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mt-1 text-2xl">
@@ -1988,7 +2044,9 @@ export default function App() {
                     <p
                       className={`text-[10px] mt-2.5 font-bold tracking-wider uppercase ${tm.textMuted}`}
                     >
-                      {badges.length} Desbloqueadas
+                      {badges.length === 1
+                        ? "1 conquistada"
+                        : `${badges.length} conquistadas`}
                     </p>
                   </div>
                 </div>
@@ -2081,11 +2139,12 @@ export default function App() {
                       <h4
                         className={`text-lg font-bold leading-tight ${tm.text}`}
                       >
-                        Preserve o Piauí
+                        Seu impacto no Piauí
                       </h4>
                       <p className={`text-xs leading-relaxed ${tm.textMuted}`}>
-                        Seu consumo economizado ajuda na proteção e
-                        sustentabilidade regional do Piauí.
+                        Cada kWh economizado é um passo real. O que parece
+                        pequeno em casa vira diferença quando toda a comunidade
+                        faz junto.
                       </p>
                     </div>
                     <div
@@ -2098,10 +2157,10 @@ export default function App() {
                         <p
                           className={`text-[10px] font-bold uppercase tracking-widest ${tm.textMuted}`}
                         >
-                          Equivalência Arbórea
+                          Equivale a plantar
                         </p>
                         <p className={`text-lg font-black ${tm.text}`}>
-                          {(consumoTotal * 0.05).toFixed(1)} Árvores
+                          {(consumoTotal * 0.05).toFixed(1)} árvores/mês
                         </p>
                       </div>
                     </div>
@@ -2121,8 +2180,8 @@ export default function App() {
                       Diagnóstico de Equipamentos
                     </h3>
                     <p className={`text-xs ${tm.textMuted}`}>
-                      Ajuste uso, frequência e quantidade dos aparelhos
-                      monitorados.
+                      Quanto mais fiel ao seu dia a dia, mais certeiro fica o
+                      diagnóstico.
                     </p>
                   </div>
                   <button
@@ -2150,17 +2209,17 @@ export default function App() {
                       <ZapOff size={32} className="text-[#10B981]" />
                     </div>
                     <h4 className={`text-lg font-bold mb-2 ${tm.text}`}>
-                      Você ainda não tem aparelhos monitorados
+                      Sua casa ainda está no escuro
                     </h4>
                     <p className={`text-sm max-w-md mb-6 ${tm.textMuted}`}>
-                      Adicione aparelhos para começar a ver onde você pode
-                      economizar mais energia.
+                      Cadastre o primeiro aparelho e descubra o vilão da sua
+                      conta de luz.
                     </p>
                     <button
                       onClick={() => setModalTemplatesAberto(true)}
                       className="bg-gradient-to-r from-[#10B981] to-[#06B6D4] text-white font-extrabold text-xs min-h-[44px] py-3.5 px-6 rounded-2xl hover:shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 uppercase tracking-wider whitespace-nowrap"
                     >
-                      <Plus size={16} /> Iniciar Mapeamento
+                      <Plus size={16} /> Cadastrar aparelho
                     </button>
                   </div>
                 ) : (
@@ -2219,7 +2278,7 @@ export default function App() {
                             <div>
                               <div className="flex justify-between text-[11px] font-semibold mb-2">
                                 <span className={tm.textMuted}>
-                                  Potência Oficial:
+                                  Potência:
                                 </span>
                                 <span className={`font-bold ${tm.text}`}>
                                   {elet.potencia} W
@@ -2229,7 +2288,7 @@ export default function App() {
                             <div>
                               <div className="flex justify-between text-[11px] font-semibold mb-2">
                                 <span className={tm.textMuted}>
-                                  Uso Médio Diário:
+                                  Uso por dia:
                                 </span>
                                 <button
                                   type="button"
@@ -2270,7 +2329,7 @@ export default function App() {
                             <div>
                               <div className="flex justify-between text-[11px] font-semibold mb-2">
                                 <span className={tm.textMuted}>
-                                  Quantas vezes por semana:
+                                  Dias por semana:
                                 </span>
                                 <button
                                   type="button"
@@ -2359,7 +2418,7 @@ export default function App() {
                                 <p
                                   className={`font-bold uppercase tracking-widest text-[9px] mb-1 ${tm.textMuted}`}
                                 >
-                                  Estimativa Mensal
+                                  Consumo/mês
                                 </p>
                                 <p
                                   className={`text-base font-black ${tm.text}`}
@@ -2374,7 +2433,7 @@ export default function App() {
                                 <p
                                   className={`font-bold uppercase tracking-widest text-[9px] mb-1 ${tm.textMuted}`}
                                 >
-                                  Financeiro
+                                  Custo/mês
                                 </p>
                                 <p className="text-base font-black text-[#10B981]">
                                   R$ {reais.toFixed(2)}
@@ -2725,7 +2784,7 @@ export default function App() {
                 <Trash2 className="text-[#EF4444]" size={24} />
               </div>
               <h3 className={`text-lg font-extrabold ${tm.text}`}>
-                Você deseja excluir este aparelho?
+                Remover {aparelhoParaExcluir?.nome || "este aparelho"}?
               </h3>
               <p className={`text-xs ${tm.textMuted}`}>
                 {aparelhoParaExcluir.nome}
@@ -2737,7 +2796,7 @@ export default function App() {
                 onClick={confirmarExclusaoEletrodomestico}
                 className="bg-[#EF4444] hover:bg-[#dc2626] text-white font-extrabold text-xs py-3.5 rounded-2xl transition-all active:scale-[0.98] uppercase tracking-wider"
               >
-                Confirmar
+                Sim, remover
               </button>
               <button
                 type="button"

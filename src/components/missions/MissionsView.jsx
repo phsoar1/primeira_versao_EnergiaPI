@@ -77,7 +77,7 @@ function MissionCard({ missao, isDark, tm, onAccept, onComplete }) {
       <div className="relative z-20">
         {missao.concluida ? (
           <div className="text-center bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] py-3.5 rounded-2xl text-xs font-extrabold uppercase tracking-wider">
-            Concluída e Auditada
+            ✓ Concluída
           </div>
         ) : missao.ativa ? (
           <button
@@ -85,7 +85,7 @@ function MissionCard({ missao, isDark, tm, onAccept, onComplete }) {
             onClick={() => onComplete(missao.id)}
             className="w-full bg-gradient-to-r from-[#06B6D4] to-[#10B981] text-white font-extrabold text-xs py-4 rounded-2xl transition-all duration-300 uppercase tracking-wider active:scale-[0.98] shadow-[0_8px_20px_rgba(16,185,129,0.2)]"
           >
-            Registrar Conclusão
+            Marcar como concluída
           </button>
         ) : (
           <button
@@ -93,7 +93,7 @@ function MissionCard({ missao, isDark, tm, onAccept, onComplete }) {
             onClick={() => onAccept(missao.id)}
             className={`w-full font-extrabold text-xs py-4 rounded-2xl transition-all duration-300 uppercase tracking-wider active:scale-95 border ${isDark ? "bg-slate-800 text-white hover:bg-slate-700 border-slate-700" : "bg-white text-slate-800 hover:bg-slate-50 border-slate-300 shadow-sm"}`}
           >
-            Aceitar Missão
+            Embarcar nessa
           </button>
         )}
       </div>
@@ -157,10 +157,10 @@ export default function MissionsView({
     <div className="space-y-6 animate-fade-in-scale reveal-on-scroll">
       <div>
         <h3 className={`text-2xl font-extrabold tracking-tight ${tm.text}`}>
-          Pratique economizar energia
+          Missões de economia
         </h3>
         <p className={`text-xs ${tm.textMuted}`}>
-          Missões curtas para transformar hábitos em economia real.
+          Cada missão concluída vira pontos, e pontos viram mudança real na conta.
         </p>
       </div>
 
@@ -185,7 +185,7 @@ export default function MissionsView({
             className={`font-extrabold text-xs py-3.5 px-8 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2 uppercase tracking-widest border ${isDark ? "bg-white text-slate-900 border-white/10" : "bg-slate-900 text-white border-slate-900"}`}
           >
             <Eye className="w-4 h-4" />{" "}
-            {verMais ? "Ocultar Missões Futuras" : "Mostrar Mais Missões"}
+            {verMais ? "Ocultar missões futuras" : "Ver missões futuras"}
           </button>
         </div>
       )}
